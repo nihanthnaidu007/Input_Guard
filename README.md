@@ -313,3 +313,11 @@ python -m build
 python -m twine check dist/*
 python -m twine upload dist/*
 ```
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE) for the full text.
+
+Copyright © 2026 Nihanth Kalisetti.
