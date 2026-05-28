@@ -18,7 +18,7 @@ BUILD_VERBS = {
 # Rule 1 (missing_language) fires on these. Rule 6 does NOT.
 ACTION_VERBS = {
     "integrate", "connect", "add", "wire up",
-    "hook up", "link",
+    "hook up", "link", "use",
 }
 
 # Combined set used by rules that apply to all coding actions.
@@ -98,7 +98,8 @@ _INTENT_PATTERN = re.compile(
     r"\b("
     r"i\s+(want|need|would like|am trying|'m trying|am looking|am building|'m building)|"
     r"looking for|trying to|hoping to|planning to|put together|"
-    r"need\s+(a|an|to)|want\s+(a|an|to)"
+    r"need\s+(a|an|to)|want\s+(a|an|to)|"
+    r"lets\s+(users?|people|them|you|me)|that\s+lets\s+(users?|people|them|you|me)"
     r")\b",
     re.IGNORECASE,
 )
@@ -227,7 +228,7 @@ def _check_insufficient_context(text: str, findings: List[RuleFinding]) -> Optio
     Safety net that fires when:
       - No other rules triggered (findings is empty)
       - The input is not a question
-      - The input is at least 5 words long
+      - The input is at least 3 words long
       - The input has no specificity signal (a language, output format, route,
         field, auth type, or integration specific). Without that guard, the
         catch-all would also fire on fully specified inputs where every rule
@@ -239,12 +240,12 @@ def _check_insufficient_context(text: str, findings: List[RuleFinding]) -> Optio
     normalized = _normalize(text)
     words = normalized.split()
 
-    if len(words) < 5:
+    if len(words) < 3:
         return None
 
     question_starters = {
         "what", "how", "why", "when", "where", "who", "which",
-        "is", "are", "can", "does", "do", "will", "would",
+        "is", "are", "can", "does", "will", "would",
         "should", "could", "has", "have", "did", "was", "were",
     }
     if words[0] in question_starters or normalized.strip().endswith("?"):
