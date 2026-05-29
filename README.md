@@ -1,5 +1,5 @@
 # InputGuard
-[![PyPI version](https://badge.fury.io/py/inputguard.svg)](https://pypi.org/project/inputguard/)
+[![PyPI version](https://img.shields.io/pypi/v/inputguard.svg)](https://pypi.org/project/inputguard/)
 
 Catch unclear inputs before they become bad AI outputs.
 
