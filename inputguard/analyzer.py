@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from typing import List
 
+from inputguard.detector import detect_intent
 from inputguard.recommender import get_recommendations
 from inputguard.rules.coding import run_coding_rules
+from inputguard.rules.debug import run_debug_rules
+from inputguard.rules.optimization import run_optimization_rules
+from inputguard.rules.explanation import run_explanation_rules
+from inputguard.rules.feature import run_feature_rules
 from inputguard.scorer import calculate_score, get_status
 from inputguard.types import AnalysisResult, RuleFinding
 
@@ -36,7 +41,19 @@ class InputGuard:
                 f"Unsupported domain: {domain!r}. Phase 1 only supports 'coding'."
             )
 
-        findings: List[RuleFinding] = run_coding_rules(user_input)
+        detected_intent = detect_intent(user_input)
+
+        if detected_intent == "debug":
+            findings: List[RuleFinding] = run_debug_rules(user_input)
+        elif detected_intent == "optimization":
+            findings = run_optimization_rules(user_input)
+        elif detected_intent == "explanation":
+            findings = run_explanation_rules(user_input)
+        elif detected_intent == "feature":
+            findings = run_feature_rules(user_input)
+        else:
+            findings = run_coding_rules(user_input)
+
         score = calculate_score(findings)
         status = get_status(score, self.mode)
 
@@ -57,6 +74,7 @@ class InputGuard:
         return AnalysisResult(
             status=status,
             clarity_score=score,
+            detected_intent=detected_intent,
             gaps=gaps,
             recommendations=recommendations,
             findings=findings,

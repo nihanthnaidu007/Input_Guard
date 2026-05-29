@@ -16,6 +16,7 @@ class RuleFinding:
 class AnalysisResult:
     status: str
     clarity_score: int
+    detected_intent: str
     gaps: List[str] = field(default_factory=list)
     recommendations: List[dict] = field(default_factory=list)
     findings: List[RuleFinding] = field(default_factory=list)
@@ -25,6 +26,7 @@ class AnalysisResult:
         return {
             "status": self.status,
             "clarity_score": self.clarity_score,
+            "detected_intent": self.detected_intent,
             "gaps": list(self.gaps),
             "recommendations": [dict(r) for r in self.recommendations],
             "findings": [asdict(f) for f in self.findings],

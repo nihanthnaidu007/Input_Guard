@@ -1,6 +1,6 @@
 from inputguard.analyzer import InputGuard
 from inputguard.types import AnalysisResult, RuleFinding
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 __all__ = ["InputGuard", "AnalysisResult", "RuleFinding", "__version__"]

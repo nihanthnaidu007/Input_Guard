@@ -46,6 +46,72 @@ _RECOMMENDATIONS: Dict[str, dict] = {
         "what_to_provide": "Describe what you want to build and how you plan to use it. For example: 'I want to build a web app where users can log in and track their daily expenses' or 'I need a Python script that reads a CSV file and sends a summary email'. The more specific you are, the closer the AI gets to what you actually want on the first try.",
         "why_it_matters": "Without basic context, the AI has to guess the language, the kind of app, the data it stores, and what it does. Almost every guess will be wrong, and you will spend more time correcting than building.",
     },
+    "error description": {
+        "gap": "error description",
+        "what_is_missing": "You haven't shared the actual error message, exception, or output you're seeing.",
+        "what_to_provide": "Include the exact error message or exception you are seeing. Copy and paste it exactly as it appears. For example: 'I'm getting TypeError: cannot read property of undefined on line 23' or 'it throws a 500 Internal Server Error with message: connection refused'. The exact wording tells the AI exactly what went wrong.",
+        "why_it_matters": "Without the exact error, the AI has to guess what failure mode you're hitting. The wrong guess sends you down a fix path that doesn't apply to your actual problem.",
+    },
+    "expected vs actual behavior": {
+        "gap": "expected vs actual behavior",
+        "what_is_missing": "You haven't described what you expected to happen and what is actually happening.",
+        "what_to_provide": "Describe two things: what you expected to happen, and what actually happened. For example: 'I expected the function to return a list of users, but it returns an empty list every time' or 'the button should submit the form but nothing happens when I click it'. Without this, the AI is guessing what the problem is.",
+        "why_it_matters": "A bug is the gap between what you wanted and what happened. Without both sides, the AI cannot tell what counts as a fix.",
+    },
+    "code context": {
+        "gap": "code context",
+        "what_is_missing": "You haven't pointed to a language, file, function, or snippet for the AI to look at.",
+        "what_to_provide": "Tell it which language you are using and point to the specific part of your code that has the problem. For example: 'this is a Python function called get_users()' or 'this is in my React component UserList.jsx on line 45'. The more specific you are, the more targeted the fix will be.",
+        "why_it_matters": "Without a code reference, the AI suggests generic fixes that may not apply to your actual code. Pointing to the exact location lets it propose a precise change.",
+    },
+    "optimization target": {
+        "gap": "optimization target",
+        "what_is_missing": "You haven't named the specific function, component, or section to optimize.",
+        "what_to_provide": "Tell it exactly which part of your code you want to optimize. For example: 'the get_users() function takes 3 seconds to run' or 'the database query on line 45 of users.py is very slow' or 'the React component re-renders too many times'. Saying 'my app' is too broad. Point to the specific function or component.",
+        "why_it_matters": "Without a target, the AI optimizes whatever it guesses and may rewrite the wrong code. Specificity prevents broad, unhelpful refactors.",
+    },
+    "performance baseline": {
+        "gap": "performance baseline",
+        "what_is_missing": "You haven't described how slow or resource-heavy the code currently is.",
+        "what_to_provide": "Describe how slow or inefficient it currently is. For example: 'it takes about 8 seconds to load' or 'memory usage spikes to 2GB when processing large files' or 'users are complaining about a 5-second delay'. A specific measurement helps the AI suggest the right kind of fix.",
+        "why_it_matters": "Different baselines call for different fixes. Trimming 100ms off a request looks nothing like cutting an 8-second response in half.",
+    },
+    "optimization constraint": {
+        "gap": "optimization constraint",
+        "what_is_missing": "You haven't said what must stay the same or what tradeoffs are acceptable.",
+        "what_to_provide": "Tell it what you cannot or do not want to change. For example: 'it must stay backward compatible' or 'readability is more important than speed' or 'I cannot change the database schema'. Without this, the AI might suggest a technically faster solution that breaks something else you care about.",
+        "why_it_matters": "Every optimization is a tradeoff. Without your constraints, the AI may produce a faster version that breaks API contracts, harms readability, or forces a schema migration.",
+    },
+    "code reference": {
+        "gap": "code reference",
+        "what_is_missing": "You haven't pointed to the specific code, function, or concept you want explained.",
+        "what_to_provide": "Point to the specific thing you want explained. For example: 'explain what the @property decorator does in Python' or 'explain what this async/await block is doing' or 'explain how the useEffect hook works in React'. Without a specific reference, the AI will give a generic answer that may not address what is actually confusing you.",
+        "why_it_matters": "A vague 'explain this' leads to a generic textbook answer. Naming the exact concept anchors the explanation to what you actually need to understand.",
+    },
+    "explanation depth": {
+        "gap": "explanation depth",
+        "what_is_missing": "You haven't said how deep or simple you want the explanation to be.",
+        "what_to_provide": "Say how much detail you want. For example: 'give me a simple one-paragraph overview' or 'explain it step by step like I have never used Python before' or 'go deep into how it works under the hood'. Without this, the AI picks a depth that might be too basic or too technical.",
+        "why_it_matters": "An explanation aimed at the wrong level is wasted. Setting depth up front lets the AI calibrate to your background and goal.",
+    },
+    "existing stack": {
+        "gap": "existing stack",
+        "what_is_missing": "You haven't said what language, framework, or tech stack your existing app is built with.",
+        "what_to_provide": "Tell it what your app is already built with. For example: 'my app is built with React on the frontend and FastAPI on the backend' or 'this is a Node.js Express app using MongoDB'. Without this, the AI might suggest an implementation that conflicts with your existing code.",
+        "why_it_matters": "A feature added in the wrong stack will not drop in cleanly. The AI may produce code that does not match your conventions or imports.",
+    },
+    "feature scope": {
+        "gap": "feature scope",
+        "what_is_missing": "You named the feature but didn't describe what it should actually do.",
+        "what_to_provide": "Define exactly what the feature should do. For example, if you want search: 'search by product name and description, case-insensitive, show results as you type' is specific. 'Add search' is not. A clear scope means the AI builds what you actually need instead of a generic version you will have to rewrite.",
+        "why_it_matters": "Without a scope, the AI implements a generic version that probably misses your real requirements and forces a rewrite.",
+    },
+    "completion criteria": {
+        "gap": "completion criteria",
+        "what_is_missing": "You haven't described what 'done' looks like for this feature.",
+        "what_to_provide": "Describe what done looks like. For example: 'the feature is complete when a user can type in the search box and see matching results appear within 200ms' or 'done means the user receives an email notification within 30 seconds of placing an order'. This prevents the AI from stopping too early or going too far.",
+        "why_it_matters": "Without a clear definition of done, the AI may ship a half-finished feature or over-engineer something well past what you needed.",
+    },
 }
 
 

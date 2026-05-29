@@ -23,7 +23,7 @@ vague input → AI guesses → wrong output → correction loop → more tokens 
 vague input → InputGuard flags what's missing → user clarifies → AI gets it right first time
 ```
 
-A non-technical user asks for "an app". The AI invents a stack, a schema, an auth scheme. Five rounds of correction later, you're closer to what they actually wanted. InputGuard catches the gaps locally, in milliseconds, before any tokens are spent.
+A non-technical user asks to "fix my code." The AI guesses at the problem, picks the wrong function, and produces a fix for something that was not broken. InputGuard catches the gaps locally, in milliseconds, before any tokens are spent.
 
 ---
 
@@ -43,12 +43,13 @@ Python 3.9+. No external dependencies.
 from inputguard import InputGuard
 
 guard = InputGuard()
-result = guard.analyze("build a REST API")
+result = guard.analyze("fix my code")
 
-print(result.status)         # 'needs_clarification'
-print(result.clarity_score)  # 50
-print(result.gaps)           # ['programming language', 'api structure']
-print(result.is_clear())     # False
+print(result.detected_intent)   # 'debug'
+print(result.status)            # 'needs_clarification'
+print(result.clarity_score)     # 35
+print(result.gaps)              # ['error description', 'expected vs actual behavior', 'code context']
+print(result.is_clear())        # False
 
 for rec in result.recommendations:
     print(rec["gap"])
@@ -58,21 +59,7 @@ for rec in result.recommendations:
     print()
 ```
 
-Actual output of the recommendations loop:
-
-```
-programming language
-You haven't told it which programming language or technology to use.
-Add something like 'using Python', 'in JavaScript with React', or 'with Node.js'. If you're not sure which to use, say what device or platform you want it to run on, like 'runs in a web browser' or 'runs on my Mac'.
-Without this, the AI picks a language on its own. You might get something built in a language you don't have installed or can't run on your machine.
-
-api structure
-You mentioned an API but didn't describe what it should do or how it should work.
-Describe the actions it needs to support. For example: 'it needs to get a list of users, create a new user, and delete a user by their ID'. You don't need to use technical terms, just describe what it does.
-Without this, the AI invents its own structure. You will spend hours correcting routes, field names, and data shapes you never asked for.
-```
-
-`analyze()` takes an optional `domain` argument, which defaults to `"coding"`. Phase 1 supports `"coding"` only.
+`analyze()` takes an optional `domain` argument, which defaults to `"coding"`. Phase 1 supports `"coding"` only. Intent detection is automatic — no extra parameters needed.
 
 ---
 
@@ -108,9 +95,37 @@ Use `warning` when you want to surface gaps to the user without blocking. Use `s
 
 ---
 
+## How intent detection works
+
+InputGuard automatically detects what kind of coding input it is receiving. No extra parameters needed. The same `.analyze()` call handles all five intent types.
+
+| Intent | What it covers | Example input |
+|---|---|---|
+| `build` | New app or system from scratch | "build a REST API" |
+| `debug` | Fixing errors, bugs, broken code | "fix my code, getting a TypeError" |
+| `optimization` | Performance, speed, refactoring | "make this function faster" |
+| `explanation` | Understanding code or concepts | "explain what this decorator does" |
+| `feature` | Adding to existing code | "add search to my existing React app" |
+
+```python
+guard = InputGuard()
+
+guard.analyze("build a REST API").detected_intent           # 'build'
+guard.analyze("fix my code").detected_intent               # 'debug'
+guard.analyze("make this faster").detected_intent          # 'optimization'
+guard.analyze("explain how async works").detected_intent   # 'explanation'
+guard.analyze("add search to my existing app").detected_intent  # 'feature'
+```
+
+When an input is ambiguous, debug always wins. "Fix this slow function" is a debug request, not optimization. Priority order is: debug → optimization → explanation → feature → build.
+
+---
+
 ## What gets checked
 
-Phase 1 covers coding build inputs: requests like "build me an X", "integrate with Y", "add Z". Eight rules run against the normalized input. Six look for specific missing pieces. Two are safety nets that catch inputs the term sets would otherwise miss.
+### Build inputs
+
+Requests like "build me an X", "integrate with Y", "create a Z". Eight rules run against the normalized input.
 
 | Rule code | What it catches | Severity |
 |---|---|---|
@@ -120,8 +135,47 @@ Phase 1 covers coding build inputs: requests like "build me an X", "integrate wi
 | `missing_integration_specifics` | A third-party service is named (Stripe, Twilio, AWS…) but no specific action or feature is described. | medium |
 | `missing_auth_type` | Authentication is mentioned but no concrete type (JWT, OAuth, magic link…) is named. | high |
 | `missing_output_format` | A top-level build verb is present but no output format (web app, CLI, REST API, script…) is named. Does not fire on connector verbs like "integrate" or "add". | medium |
-| `intent_without_language` | Build intent is expressed without a creation verb ("I need…", "I want…", "looking for…", "put together…") and no language is named. | high |
-| `insufficient_context` | Catch-all. Fires when nothing else fires, the input is at least 5 words, is not a question, and contains no specificity signal at all. | high |
+| `intent_without_language` | Build intent is expressed without a creation verb ("I need…", "I want…", "looking for…") and no language is named. | high |
+| `insufficient_context` | Catch-all. Fires when nothing else fires, the input is at least 3 words, and is not a question. | high |
+
+### Debug inputs
+
+Requests like "fix my code", "it's not working", "getting a TypeError".
+
+| Rule code | What it catches | Severity |
+|---|---|---|
+| `missing_error_message` | Debug intent detected but no error message, exception name, or stack trace described. | high |
+| `missing_expected_vs_actual` | No description of what should happen vs what actually happens. | high |
+| `missing_debug_code_context` | No language, function name, file, or snippet referenced. | medium |
+
+### Optimization inputs
+
+Requests like "make this faster", "optimize my code", "refactor this function".
+
+| Rule code | What it catches | Severity |
+|---|---|---|
+| `missing_optimization_target` | Optimization requested but no specific function, component, or area identified. | high |
+| `missing_performance_baseline` | No current measurement or observed problem described. | medium |
+| `missing_optimization_constraint` | No constraints or acceptable tradeoffs mentioned. | low |
+
+### Explanation inputs
+
+Requests like "explain this code", "what does this do", "how does this work".
+
+| Rule code | What it catches | Severity |
+|---|---|---|
+| `missing_code_reference` | Explanation requested but no specific code, function, or concept referenced. | high |
+| `missing_explanation_depth` | No indication of depth or detail level requested. | low |
+
+### Feature inputs
+
+Requests like "add search to my existing app", "extend my current API with pagination".
+
+| Rule code | What it catches | Severity |
+|---|---|---|
+| `missing_existing_stack` | Feature addition requested but no existing language, framework, or tech stack mentioned. | high |
+| `missing_feature_scope` | Feature requested but no definition of what it should specifically do. | high |
+| `missing_completion_criteria` | No definition of what done looks like for this feature. | low |
 
 ---
 
@@ -133,6 +187,7 @@ Phase 1 covers coding build inputs: requests like "build me an X", "integrate wi
 |---|---|---|
 | `status` | `str` | One of `"ready"`, `"usable_with_warnings"`, `"needs_clarification"`, `"blocked"` |
 | `clarity_score` | `int` | 0 to 100 |
+| `detected_intent` | `str` | Which intent was detected: `build`, `debug`, `optimization`, `explanation`, or `feature` |
 | `gaps` | `List[str]` | Gap names, in the order rules fired |
 | `recommendations` | `List[dict]` | One dict per gap (see next section) |
 | `findings` | `List[RuleFinding]` | Raw rule findings (code, message, severity, gap) |
@@ -143,41 +198,42 @@ Helpers:
 - `result.is_clear()` — `True` only when status is `"ready"`
 - `result.to_dict()` — full result as a plain JSON-serializable dict
 
-Example `result.to_dict()` for `guard.analyze("build a CRUD app with a database")`:
+Example `result.to_dict()` for `guard.analyze("fix my code")`:
 
 ```json
 {
   "status": "needs_clarification",
   "clarity_score": 35,
+  "detected_intent": "debug",
   "gaps": [
-    "programming language",
-    "data model",
-    "output format"
+    "error description",
+    "expected vs actual behavior",
+    "code context"
   ],
   "recommendations": [
     {
-      "gap": "programming language",
-      "what_is_missing": "You haven't told it which programming language or technology to use.",
-      "what_to_provide": "Add something like 'using Python', 'in JavaScript with React', or 'with Node.js'. If you're not sure which to use, say what device or platform you want it to run on, like 'runs in a web browser' or 'runs on my Mac'.",
-      "why_it_matters": "Without this, the AI picks a language on its own. You might get something built in a language you don't have installed or can't run on your machine."
+      "gap": "error description",
+      "what_is_missing": "You haven't included the actual error message or exception.",
+      "what_to_provide": "Copy and paste the exact error message. For example: 'I'm getting TypeError: cannot read property of undefined on line 23'.",
+      "why_it_matters": "The exact wording tells the AI exactly what went wrong. Without it, the AI guesses and often fixes the wrong thing."
     },
     {
-      "gap": "data model",
-      "what_is_missing": "You mentioned storing data but didn't say what data or what details need to be saved.",
-      "what_to_provide": "List the main things you need to store and what information matters for each. For example: 'store users with their name, email address, and password' or 'products with a title, price, and how many are in stock'.",
-      "why_it_matters": "Without this, the AI guesses your entire database structure. The names, fields, and data types will be wrong and you will have to rebuild them from scratch."
+      "gap": "expected vs actual behavior",
+      "what_is_missing": "You haven't described what should happen vs what actually happens.",
+      "what_to_provide": "Describe both. For example: 'it should return a list of users but instead returns None every time'.",
+      "why_it_matters": "Without this, the AI is guessing what the problem is. It may fix something that was not broken."
     },
     {
-      "gap": "output format",
-      "what_is_missing": "You didn't say what kind of thing you're building or how it will be used.",
-      "what_to_provide": "Add something like: 'as a web app I can open in a browser', 'as a command-line tool I run in my terminal', 'as a REST API', 'as a Python script', or 'as a mobile app'. Pick whichever matches how you plan to use it.",
-      "why_it_matters": "A web app, a script, and an API that do the same job look completely different in code. Without this, the AI picks one and you might get the wrong one entirely."
+      "gap": "code context",
+      "what_is_missing": "You haven't pointed to the specific part of your code with the problem.",
+      "what_to_provide": "Name the language and the function. For example: 'this is a Python function called get_users()'.",
+      "why_it_matters": "The more specific you are, the more targeted the fix will be."
     }
   ],
   "findings": [
-    {"code": "missing_language",      "message": "No programming language or framework detected.",                          "severity": "high",   "gap": "programming language"},
-    {"code": "missing_data_model",    "message": "Storage or database mentioned but no fields, entities, or model described.","severity": "high",   "gap": "data model"},
-    {"code": "missing_output_format", "message": "Build request detected but no output or delivery format specified.",      "severity": "medium", "gap": "output format"}
+    {"code": "missing_error_message",      "message": "Debug request detected but no error message or exception described.", "severity": "high",   "gap": "error description"},
+    {"code": "missing_expected_vs_actual", "message": "No description of expected vs actual behavior provided.",            "severity": "high",   "gap": "expected vs actual behavior"},
+    {"code": "missing_debug_code_context", "message": "No code context provided.",                                          "severity": "medium", "gap": "code context"}
   ],
   "interpretation_note": "This input is ambiguous in multiple ways. Addressing each gap below before sending will prevent the AI from making assumptions that lead to the wrong output."
 }
@@ -197,8 +253,13 @@ for rec in result.recommendations:
     print(rec["why_it_matters"])  # what goes wrong if they skip it
 ```
 
-The seven gap names that can appear are:
-`programming language`, `api structure`, `data model`, `integration specifics`, `authentication type`, `output format`, `task context`.
+Gap names by intent type:
+
+- **Build:** `programming language`, `api structure`, `data model`, `integration specifics`, `authentication type`, `output format`, `task context`
+- **Debug:** `error description`, `expected vs actual behavior`, `code context`
+- **Optimization:** `optimization target`, `performance baseline`, `optimization constraint`
+- **Explanation:** `code reference`, `explanation depth`
+- **Feature:** `existing stack`, `feature scope`, `completion criteria`
 
 ---
 
@@ -208,28 +269,50 @@ The seven gap names that can appear are:
 from inputguard import InputGuard
 guard = InputGuard()
 
+# Build — vague
 guard.analyze("build me an app")
+#   detected_intent: 'build'
 #   score:  60
 #   status: usable_with_warnings
 #   gaps:   ['programming language', 'output format']
 
-guard.analyze("integrate with Stripe")
-#   score:  60
-#   status: usable_with_warnings
-#   gaps:   ['programming language', 'integration specifics']
+# Debug — vague
+guard.analyze("fix my code")
+#   detected_intent: 'debug'
+#   score:  35
+#   status: needs_clarification
+#   gaps:   ['error description', 'expected vs actual behavior', 'code context']
 
+# Optimization — vague
+guard.analyze("make this faster")
+#   detected_intent: 'optimization'
+#   score:  55
+#   status: needs_clarification
+#   gaps:   ['optimization target', 'performance baseline', 'optimization constraint']
+
+# Build — fully specified
 guard.analyze(
     "Build a REST API using FastAPI. "
     "Store users in PostgreSQL with fields: id, name, email. "
     "Expose GET /users and POST /users endpoints. "
     "Add JWT authentication."
 )
+#   detected_intent: 'build'
+#   score:  100
+#   status: ready
+#   gaps:   []
+
+# Debug — fully specified
+guard.analyze(
+    "Fix this Python function get_users() — it should return a list "
+    "of user dicts but instead returns None. "
+    "The error says: TypeError: NoneType is not iterable on line 45."
+)
+#   detected_intent: 'debug'
 #   score:  100
 #   status: ready
 #   gaps:   []
 ```
-
-The vague input is flagged in two places. The partial input is flagged on the missing language and on the unspecified Stripe action. The specific input passes cleanly.
 
 ---
 
@@ -249,6 +332,7 @@ def handle_user_input(user_input: str):
         # Return feedback to the user before calling the LLM
         return {
             "status": result.status,
+            "detected_intent": result.detected_intent,
             "gaps": result.gaps,
             "recommendations": result.recommendations,
         }
@@ -267,6 +351,7 @@ def handle_user_input(user_input: str):
     if not result.is_clear():
         return {
             "status": result.status,
+            "detected_intent": result.detected_intent,
             "gaps": result.gaps,
             "recommendations": result.recommendations,
         }
@@ -282,15 +367,25 @@ inputguard/
 ├── inputguard/
 │   ├── __init__.py
 │   ├── analyzer.py
+│   ├── detector.py
 │   ├── recommender.py
 │   ├── scorer.py
 │   ├── types.py
 │   ├── py.typed
 │   └── rules/
 │       ├── __init__.py
-│       └── coding.py
+│       ├── coding.py
+│       ├── debug.py
+│       ├── optimization.py
+│       ├── explanation.py
+│       └── feature.py
 ├── tests/
-│   └── test_coding.py
+│   ├── test_coding.py
+│   ├── test_detector.py
+│   ├── test_debug.py
+│   ├── test_optimization.py
+│   ├── test_explanation.py
+│   └── test_feature.py
 ├── pyproject.toml
 └── README.md
 ```

@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+import re
+from typing import List, Optional
+
+from inputguard.detector import DEBUG_SIGNALS
+from inputguard.types import RuleFinding
+
+
+ERROR_DESCRIPTION_SIGNALS = {
+    "error message", "error:", "exception:", "traceback", "stack trace",
+    "stacktrace", "says", "shows", "outputs", "prints", "returns",
+    "it says", "it shows", "message is", "message:", "log says",
+    "getting:", "throwing:", "raises:", "failed with",
+    "typeerror", "valueerror", "keyerror", "attributeerror",
+    "importerror", "nameerror", "indexerror", "syntaxerror",
+    "runtimeerror", "nullpointerexception", "segfault",
+}
+
+BEHAVIOR_SIGNALS = {
+    "should", "expected", "supposed to", "meant to", "instead",
+    "but it", "however", "actually", "in reality", "what i want",
+    "what i expect", "what i need", "correct behavior", "correct output",
+    "right output", "instead of", "rather than", "not what",
+    "wrong result", "wrong value", "incorrect",
+}
+
+CODE_CONTEXT_SIGNALS = {
+    "function", "method", "class", "file", "module", "script",
+    "line", "snippet", "code block", "the function", "my function",
+    "this function", "this method", "this class", "the class",
+    "this line", "on line", "at line", "this code", "the code",
+    "python", "javascript", "typescript", "java", "react", "node",
+    "django", "flask", "fastapi", "express", "ruby", "go", "rust",
+    "def ", "function ", "class ", "const ", "let ", "var ",
+    "import ", "from ", "async ", "await ",
+}
+
+
+def _normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _contains_any(text: str, terms) -> bool:
+    return any(term in text for term in terms)
+
+
+def check_missing_error_message(text: str) -> Optional[RuleFinding]:
+    text = _normalize(text)
+    if _contains_any(text, DEBUG_SIGNALS) and not _contains_any(text, ERROR_DESCRIPTION_SIGNALS):
+        return RuleFinding(
+            code="missing_error_message",
+            message="Debug request detected but no error message or exception described.",
+            severity="high",
+            gap="error description",
+        )
+    return None
+
+
+def check_missing_expected_vs_actual(text: str) -> Optional[RuleFinding]:
+    text = _normalize(text)
+    if _contains_any(text, DEBUG_SIGNALS) and not _contains_any(text, BEHAVIOR_SIGNALS):
+        return RuleFinding(
+            code="missing_expected_vs_actual",
+            message="No description of expected vs actual behavior provided.",
+            severity="high",
+            gap="expected vs actual behavior",
+        )
+    return None
+
+
+def check_missing_debug_code_context(text: str) -> Optional[RuleFinding]:
+    text = _normalize(text)
+    if _contains_any(text, DEBUG_SIGNALS) and not _contains_any(text, CODE_CONTEXT_SIGNALS):
+        return RuleFinding(
+            code="missing_debug_code_context",
+            message="No code context provided — no language, function name, or snippet referenced.",
+            severity="medium",
+            gap="code context",
+        )
+    return None
+
+
+def _dedupe(findings: List[RuleFinding]) -> List[RuleFinding]:
+    seen = set()
+    out = []
+    for f in findings:
+        if f.code not in seen:
+            out.append(f)
+            seen.add(f.code)
+    return out
+
+
+def run_debug_rules(text: str) -> List[RuleFinding]:
+    normalized = _normalize(text)
+    findings = []
+    for check in [
+        check_missing_error_message,
+        check_missing_expected_vs_actual,
+        check_missing_debug_code_context,
+    ]:
+        result = check(normalized)
+        if result:
+            findings.append(result)
+    return _dedupe(findings)
