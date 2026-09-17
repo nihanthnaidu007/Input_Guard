@@ -397,7 +397,7 @@ WRITING_RULES: Tuple[type, ...] = (
 
 # The single fallback intent: every writing-domain input is a composition
 # task. Exactly one empty-terms intent is what the registry requires.
-WRITING_SIGNALS: Tuple[Tuple[str, tuple], ...] = (
+WRITING_SIGNALS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
     ("compose", ()),
 )
 

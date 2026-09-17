@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from inputguard.detector import FEATURE_SIGNALS
 from inputguard.matching import contains_any
@@ -27,7 +27,7 @@ FEATURE_SCOPE_SIGNALS = {
     "oauth", "jwt", "session", "api key", "role-based", "rbac",
     "upload", "download", "preview", "thumbnail",
     "dashboard", "chart", "graph", "table", "export",
-    "search by", "filter by", "sort by", "group by",
+    "search by", "group by",
 }
 
 COMPLETION_CRITERIA_SIGNALS = {
@@ -44,7 +44,7 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
 
 
-def _contains_any(text: str, terms) -> bool:
+def _contains_any(text: str, terms: Iterable[str]) -> bool:
     # v0.3: word-boundary matching via the shared matcher (probe P1 fix).
     return contains_any(text, terms)
 

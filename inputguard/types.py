@@ -27,7 +27,7 @@ class AnalysisResult:
     clarity_score: int
     detected_intent: str
     gaps: List[str] = field(default_factory=list)
-    recommendations: List[dict] = field(default_factory=list)
+    recommendations: List[Dict[str, Any]] = field(default_factory=list)
     findings: List[RuleFinding] = field(default_factory=list)
     interpretation_note: Optional[str] = None
     # v0.3, additive: templated clarifying questions, one or two per gap,
@@ -48,7 +48,7 @@ class AnalysisResult:
     truncated: bool = False
     score_breakdown: Optional[Dict[str, Any]] = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "status": self.status,
             "clarity_score": self.clarity_score,

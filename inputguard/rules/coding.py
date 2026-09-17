@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Set
+from typing import Iterable, List, Optional, Set
 
 from inputguard.matching import contains_any
 from inputguard.registry import register_rule
@@ -111,7 +111,7 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower()).strip()
 
 
-def _contains_any(text: str, terms) -> bool:
+def _contains_any(text: str, terms: Iterable[str]) -> bool:
     # v0.3: word-boundary matching via the shared matcher. token_fallback
     # keeps the v0.2 coding-rule behavior for multiword terms ("def ",
     # "sign in with"): their words may appear non-adjacent.

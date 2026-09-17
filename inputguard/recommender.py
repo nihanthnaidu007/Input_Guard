@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, List
 
 
-_RECOMMENDATIONS: Dict[str, dict] = {
+_RECOMMENDATIONS: Dict[str, Dict[str, str]] = {
     "programming language": {
         "gap": "programming language",
         "what_is_missing": "You haven't told it which programming language or technology to use.",
@@ -183,7 +183,7 @@ _RECOMMENDATIONS: Dict[str, dict] = {
 }
 
 
-def _fallback_recommendation(gap: str) -> dict:
+def _fallback_recommendation(gap: str) -> Dict[str, str]:
     """Generic four-key advice for a gap with no curated entry.
 
     The documented fallback (spec art_bTvdPdJS §6): unknown gaps keep their
@@ -198,13 +198,13 @@ def _fallback_recommendation(gap: str) -> dict:
     }
 
 
-def get_recommendations(gaps: List[str]) -> List[dict]:
+def get_recommendations(gaps: List[str]) -> List[Dict[str, str]]:
     """Build one four-key recommendation per gap, in input order.
 
     A gap without a curated entry gets the documented fallback
     (see :func:`_fallback_recommendation`) — never a silent drop.
     """
-    out: List[dict] = []
+    out: List[Dict[str, str]] = []
     for gap in gaps:
         entry = _RECOMMENDATIONS.get(gap)
         out.append(dict(entry) if entry is not None else _fallback_recommendation(gap))
