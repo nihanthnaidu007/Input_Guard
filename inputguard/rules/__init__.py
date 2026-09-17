@@ -36,6 +36,14 @@ __all__ = [
     "run_optimization_rules",
     "run_explanation_rules",
     "run_feature_rules",
+    # Backward-compat re-exports of the v0.2 signal tables (INTENT_SIGNALS is
+    # consumed by the coding registration above; the per-intent tables stay
+    # importable for code that read them from this module in v0.2).
+    "INTENT_SIGNALS",
+    "DEBUG_SIGNALS",
+    "EXPLANATION_SIGNALS",
+    "FEATURE_SIGNALS",
+    "OPTIMIZATION_SIGNALS",
 ]
 
 # The coding domain: intent signals in strict priority order (the single

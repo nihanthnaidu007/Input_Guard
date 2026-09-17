@@ -47,7 +47,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, FrozenSet, Optional, Set
 
 __all__ = [
     "COVERAGE_FULL",
@@ -228,7 +228,7 @@ _MIN_SOLO_HITS = 2
 # of 3+ letters is a word or clause the English heuristics cannot read.
 _UNCOVERED_BLOCK_DEGRADES_AT = 3
 
-_LATIN_FUNCTION_WORDS: Dict[str, frozenset] = {
+_LATIN_FUNCTION_WORDS: Dict[str, FrozenSet[str]] = {
     "en": frozenset({
         "a", "an", "the", "and", "or", "but", "if", "then", "of", "to", "in",
         "on", "at", "by", "for", "with", "from", "into", "over", "under",
@@ -357,7 +357,7 @@ def _latin_language_of(sample: str) -> Optional[str]:
     Ties between firing languages resolve alphabetically, like the script
     histogram's dominant-script tie-break.
     """
-    distinct: Dict[str, set] = {}
+    distinct: Dict[str, Set[str]] = {}
     for raw in sample.translate(_APOSTROPHES).lower().split():
         token = _EDGE_TRIM.sub("", raw)
         if not token:
