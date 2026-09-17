@@ -427,3 +427,183 @@ def test_parallel_analyze_thread_safety_64_workers():
     for text, mode, result in results:
         baseline = expected_strict if mode == "strict" else expected
         assert result == baseline[text]
+
+
+# ---------------------------------------------------------------------------
+# Accented-Latin and mixed-script coverage (eval rows DG-011..014)
+#
+# The share histogram alone calls French/Spanish/Portuguese "fully covered"
+# (their letters are Latin) and calls a mixed English+Han prompt covered
+# whenever the Han minority is small. Both are silent mis-coverage: the
+# English-only heuristics cannot read a word of them. These tests pin the
+# two refinements that close the gap and the English prompts they must not
+# disturb.
+# ---------------------------------------------------------------------------
+
+FRENCH = "Crée une application web avec connexion utilisateur et tableau de bord"
+SPANISH = "¿Por qué mi código se ejecuta tan lento y cómo puedo optimizarlo?"
+PORTUGUESE = "Preciso de um aplicativo web com login de usuário e relatórios"
+MIXED_ENGLISH_HAN = "Fix this bug 修复这个错误 in the payment flow"
+
+
+def test_french_is_not_english_coverage():
+    probe = probe_script(FRENCH)
+    assert probe.dominant_script == "latin"
+    assert probe.detected_language == "fr"
+    assert probe.heuristic_coverage == COVERAGE_NONE
+
+
+def test_spanish_is_not_english_coverage():
+    probe = probe_script(SPANISH)
+    assert probe.dominant_script == "latin"
+    assert probe.detected_language == "es"
+    assert probe.heuristic_coverage == COVERAGE_NONE
+
+
+def test_portuguese_is_not_english_coverage():
+    probe = probe_script(PORTUGUESE)
+    assert probe.dominant_script == "latin"
+    assert probe.detected_language == "pt"
+    assert probe.heuristic_coverage == COVERAGE_NONE
+
+
+def test_french_degrades_even_with_only_two_stop_words():
+    # Zero English function-word evidence: two distinct French function
+    # words already fire (_MIN_SOLO_HITS) — "Oui merci beaucoup pour ton
+    # aide" must not pass as English just because it is stop-word light.
+    probe = probe_script("Oui merci beaucoup pour ton aide")
+    assert probe.detected_language == "fr"
+    assert probe.heuristic_coverage == COVERAGE_NONE
+
+
+def test_mixed_english_han_clause_is_degraded_by_run_length():
+    probe = probe_script(MIXED_ENGLISH_HAN)
+    assert probe.dominant_script == "latin"
+    assert probe.detected_language == "en"  # majority English, honestly kept
+    assert probe.heuristic_coverage == COVERAGE_NONE
+    assert probe.uncovered_block_script == "han"
+    assert probe.uncovered_block_length == 6
+
+
+def test_two_letter_han_borrow_stays_full():
+    # Boundary guard for the run rule: a 2-letter borrow rides along under
+    # the English majority (the pinned "make it faster 这个" contract).
+    probe = probe_script("optimize the query 支持")
+    assert probe.detected_language == "en"
+    assert probe.heuristic_coverage == COVERAGE_FULL
+
+
+def test_three_letter_han_block_degrades():
+    # A 3-letter uncovered run is a word the English heuristics cannot read.
+    probe = probe_script("optimize the query 数据库")
+    assert probe.heuristic_coverage == COVERAGE_NONE
+    assert probe.uncovered_block_length == 3
+
+
+def test_accented_english_loanwords_stay_full():
+    probe = probe_script("Add a café section for José résumé page")
+    assert probe.detected_language == "en"
+    assert probe.heuristic_coverage == COVERAGE_FULL
+
+
+def test_urls_and_hyphenated_words_stay_full():
+    # Interior punctuation keeps "example.com" and "de-duplicate" whole —
+    # neither may contribute a stray "com"/"de" lexicon hit.
+    probe = probe_script("De-duplicate records from api.example.com and deploy")
+    assert probe.detected_language == "en"
+    assert probe.heuristic_coverage == COVERAGE_FULL
+
+
+def test_english_function_words_block_lexicon_fire():
+    # Collision-heavy but genuinely English: pour/DES/LA/Mon are scattered
+    # collisions, and the dense English function-word evidence (the, into,
+    # before) keeps the margin rule from firing.
+    probe = probe_script("Pour the DES dump into LA storage before Mon")
+    assert probe.detected_language == "en"
+    assert probe.heuristic_coverage == COVERAGE_FULL
+
+
+def test_unlisted_latin_language_stays_full():
+    # Documented subset boundary: German is Latin script and not in the
+    # lexicons — it passes as before rather than pretending to degrade.
+    probe = probe_script("Ich möchte eine Webanwendung mit Benutzeranmeldung")
+    assert probe.detected_language == "en"
+    assert probe.heuristic_coverage == COVERAGE_FULL
+
+
+def test_latin_language_probe_is_deterministic():
+    assert probe_script(FRENCH) == probe_script(FRENCH)
+    assert probe_script(MIXED_ENGLISH_HAN) == probe_script(MIXED_ENGLISH_HAN)
+
+
+def test_latin_language_degrades_end_to_end_like_other_uncovered_languages():
+    # The DG-001..010 contract, now for the accented-Latin rows: explicit
+    # note, no silent ready, rules skipped, undetermined intent, no gaps.
+    for text, language in ((FRENCH, "fr"), (SPANISH, "es"), (PORTUGUESE, "pt")):
+        r = InputGuard().analyze(text)
+        assert r.heuristic_coverage == COVERAGE_NONE, text
+        assert r.detected_language == language, text
+        assert r.degradation_note is not None, text
+        assert r.status == "usable_with_warnings", text
+        assert r.detected_intent == DEGRADED_INTENT, text
+        assert r.gaps == [], text
+        assert r.clarity_score == 100 - DEGRADATION_PENALTY, text
+
+
+def test_spanish_no_longer_returns_silent_ready():
+    # DG-012's specific regression: v0.3-before-this-fix answered ready/100
+    # with zero findings on Spanish input.
+    r = InputGuard().analyze(SPANISH)
+    assert r.status != "ready"
+    assert r.clarity_score != 100
+    assert not r.is_clear()
+
+
+def test_french_degrades_in_strict_mode_too():
+    r = InputGuard(mode="strict").analyze(FRENCH)
+    assert r.status == "needs_clarification"
+    assert r.degradation_note is not None
+
+
+def test_mixed_english_han_degrades_end_to_end():
+    r = InputGuard().analyze(MIXED_ENGLISH_HAN)
+    assert r.heuristic_coverage == COVERAGE_NONE
+    assert r.degradation_note is not None
+    assert r.status == "usable_with_warnings"
+    assert r.detected_intent == DEGRADED_INTENT
+    assert r.gaps == []
+
+
+def test_french_note_names_the_language():
+    note = InputGuard().analyze(FRENCH).degradation_note
+    assert "French" in note
+    assert "fr" in note
+    assert "English" in note
+
+
+def test_mixed_note_names_the_uncovered_run():
+    note = InputGuard().analyze(MIXED_ENGLISH_HAN).degradation_note
+    assert "han" in note
+    assert "6" in note
+    assert "English" in note
+
+
+def test_all_fourteen_degradation_rows_meet_the_dg_rubric():
+    # The acceptance sweep for DG-001..014 (labeling guide rubric: explicit
+    # degradation note, never a silent ready, no rule firing on vocabulary
+    # the heuristics cannot read). Labels come straight from eval/cases.csv.
+    import csv
+    from pathlib import Path
+
+    cases = Path(__file__).resolve().parent.parent / "eval" / "cases.csv"
+    with cases.open(newline="", encoding="utf-8") as handle:
+        dg_rows = [row for row in csv.DictReader(handle) if row["id"].startswith("DG-")]
+    assert len(dg_rows) == 14
+
+    guard = InputGuard()
+    for row in dg_rows:
+        result = guard.analyze(row["text"], domain=row["domain"])
+        assert result.degradation_note, row["id"]
+        assert result.status != "ready", row["id"]
+        assert result.heuristic_coverage != COVERAGE_FULL, row["id"]
+        assert result.gaps == [], row["id"]

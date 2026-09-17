@@ -13,6 +13,12 @@
   `heuristic_coverage`, `degradation_note` (included in `to_dict()`).
 - Mixed-script input: rules run whenever the covered share of letters is
   at least 50%, with a `partial` note between 50–70% coverage.
+- Accented-Latin honesty (eval DG-011..014): French, Spanish, and
+  Portuguese input no longer passes as silently covered — a function-word
+  layer degrades them like any other uncovered language, and a run of 3+
+  consecutive uncovered-script letters (mixed English+Han) degrades even
+  majority-English input. English prompts (loanwords, URLs, name and
+  timezone collisions) are pinned unchanged by tests.
 
 ## [0.2.0] — 2026-05-29
 ### Added
