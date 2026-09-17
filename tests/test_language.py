@@ -1,15 +1,22 @@
-"""Tests for the language probe (unicodedata script histogram).
+"""Tests for the language probe and the multilingual degradation path.
 
-Covers the script classification and coverage-band logic of
-``inputguard.language``. End-to-end degradation behavior (the degraded
-``analyze()`` path) is covered in the integration section appended by the
-non-English-honesty commit.
+Probe units cover script classification and coverage bands
+(``inputguard.language``). The integration section covers the degraded
+``analyze()`` path end to end: the probe-P2 regression (Chinese input
+must never silently return ready/100), mode behavior, additive result
+fields, English parity, systematic Unicode no-crash samples, and
+thread-safe parallel analysis.
 """
 
 from __future__ import annotations
 
+import json
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
+from inputguard import InputGuard
 from inputguard.language import (
     COVERAGE_FULL,
     COVERAGE_NONE,
@@ -198,3 +205,215 @@ def test_non_letters_are_skipped_by_category():
         assert unicodedata.category(ch)  # sanity: all real code points
     probe = probe_script("... 123 🏳️‍🌈")
     assert probe.heuristic_coverage == COVERAGE_UNKNOWN
+
+
+# ---------------------------------------------------------------------------
+# Integration: the degraded analyze() path (non-English honesty)
+# ---------------------------------------------------------------------------
+
+# Probe P2's exact input: v0.2 returned intent=build, score 100, ready,
+# zero findings — a silent pass on input the rules cannot read.
+PROBE_P2_INPUT = "建造一个用户登录应用"
+
+
+def test_probe_p2_regression_chinese_never_silent_ready():
+    guard = InputGuard()
+    r = guard.analyze(PROBE_P2_INPUT)
+    assert r.heuristic_coverage == COVERAGE_NONE
+    assert r.degradation_note is not None
+    assert r.status != "ready"
+    assert r.clarity_score != 100
+    assert not r.is_clear()
+
+
+def test_degraded_result_shape():
+    r = InputGuard().analyze(PROBE_P2_INPUT)
+    assert r.clarity_score == 100 - DEGRADATION_PENALTY
+    assert r.detected_intent == DEGRADED_INTENT
+    assert r.detected_language == "zh"
+    assert r.gaps == []
+    assert r.findings == []
+    assert r.recommendations == []
+    assert r.interpretation_note is None
+
+
+def test_degraded_strict_mode_returns_needs_clarification_not_blocked():
+    r = InputGuard(mode="strict").analyze(PROBE_P2_INPUT)
+    # Score 80 lands in the strict clarify band (65-84), below the ready
+    # floor in both modes.
+    assert r.status == "needs_clarification"
+
+
+def test_degraded_warning_mode_returns_usable_with_warnings():
+    r = InputGuard().analyze(PROBE_P2_INPUT)
+    assert r.status == "usable_with_warnings"
+
+
+def test_degradation_note_is_actionable():
+    r = InputGuard().analyze(PROBE_P2_INPUT)
+    assert "English" in r.degradation_note
+    assert "han" in r.degradation_note
+
+
+def test_degraded_applies_to_every_uncovered_script():
+    for text in (
+        "почему моя программа не работает",
+        "لماذا لا يعمل هذا الكود",
+        "이 코드가 왜 작동하지 않나요",
+        "このコードが動作しないのはなぜですか",
+        "γιατί δεν λειτουργεί",
+        "ᚠᚢᚦᚨᚱᚲ",
+    ):
+        r = InputGuard().analyze(text)
+        assert r.heuristic_coverage == COVERAGE_NONE, text
+        assert r.degradation_note is not None, text
+        assert r.status != "ready", text
+
+
+def test_english_parity_probe_fields():
+    # Covered input carries the probe's verdict but no degradation. The
+    # clarity verdict itself is unchanged v0.2 behavior: one distinct gap
+    # (api structure) -> 100 - 25 = 75.
+    r = InputGuard().analyze("Build a REST API using FastAPI. Store users in PostgreSQL.")
+    assert r.detected_language == "en"
+    assert r.heuristic_coverage == COVERAGE_FULL
+    assert r.degradation_note is None
+    assert r.status == "usable_with_warnings"
+    assert r.clarity_score == 75
+
+
+def test_english_parity_score_unchanged():
+    # Byte-parity with the pre-probe pipeline on a vague English input:
+    # debug intent, three distinct gaps -> 100 - 25 - 25 - 15 = 35 (the
+    # score the v0.2 README documents for this input).
+    r = InputGuard().analyze("fix my code")
+    assert r.detected_intent == "debug"
+    assert r.clarity_score == 35
+    assert r.status == "needs_clarification"
+    assert r.heuristic_coverage == COVERAGE_FULL
+    assert r.degradation_note is None
+
+
+def test_partial_coverage_runs_rules_with_note_no_penalty():
+    # ~56% covered share: rules run (findings computed as usual), the note
+    # flags the uncovered remainder, and no degradation penalty applies.
+    r = InputGuard().analyze("abcde 这是测试")
+    assert r.heuristic_coverage == COVERAGE_PARTIAL
+    assert r.degradation_note is not None
+    assert r.clarity_score == 100  # 5-letter input fires no rules
+
+
+def test_validation_contracts_precede_the_probe():
+    guard = InputGuard()
+    with pytest.raises(TypeError):
+        guard.analyze(12345)  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        guard.analyze("   ")
+    # Unknown domain raises even for input the probe would degrade.
+    with pytest.raises(ValueError):
+        guard.analyze(PROBE_P2_INPUT, domain="legal")
+
+
+def test_to_dict_includes_additive_fields():
+    d = InputGuard().analyze(PROBE_P2_INPUT).to_dict()
+    assert d["detected_language"] == "zh"
+    assert d["heuristic_coverage"] == "none"
+    assert isinstance(d["degradation_note"], str)
+    # v0.2 keys remain byte-identical in name and order.
+    assert list(d)[:7] == [
+        "status",
+        "clarity_score",
+        "detected_intent",
+        "gaps",
+        "recommendations",
+        "findings",
+        "interpretation_note",
+    ]
+    json.dumps(d, ensure_ascii=False)  # JSON-serializable as before
+
+
+# ---------------------------------------------------------------------------
+# Property-style no-crash on arbitrary Unicode (systematic samples —
+# hypothesis is not a dev dependency; zero-dep constraint honored)
+# ---------------------------------------------------------------------------
+
+_VALID_STATUSES = {"ready", "usable_with_warnings", "needs_clarification", "blocked"}
+
+_UNICODE_SAMPLES = [
+    "emoji only 🚀🔥🏳️‍🌈",
+    "mixed 混合 text وبالعربية معا",
+    "zero width zero​width joiner",
+    "rtl override ‮reverse‭",
+    "combining marks é̈ 👨‍👩‍👧‍👦",
+    "unassigned \u0378 codepoint",
+    "cjk mixed with ascii: build api 用户",
+    "ｆｕｌｌｗｉｄｔｈ　ｌｅｔｔｅｒｓ １２３",
+    "tab\tand\nnewline\r\nmixes",
+    "ʼn concatenations ʻʼʽ",
+    "íàéä ççñň ņņň — diacritic soup",
+    "文字化け mojibake",
+    "سيب ذلك mixed rtl ltr",
+    "҈ all the combining things ✈ ✈ ✈",
+]
+
+
+@pytest.mark.parametrize("text", _UNICODE_SAMPLES)
+def test_no_crash_valid_result_on_arbitrary_unicode(text):
+    r = InputGuard().analyze(text)
+    assert r.status in _VALID_STATUSES
+    assert 0 <= r.clarity_score <= 100
+    # A note exists exactly when the probe could not fully cover the input.
+    if r.heuristic_coverage in (COVERAGE_FULL, COVERAGE_UNKNOWN):
+        assert r.degradation_note is None
+    else:
+        assert r.degradation_note is not None
+    if r.heuristic_coverage == COVERAGE_NONE:
+        # Degraded path contract: rules skipped, honest intent, never ready.
+        assert r.findings == []
+        assert r.detected_intent == DEGRADED_INTENT
+        assert r.status != "ready"
+
+
+def test_long_input_bounded_probe_still_classifies():
+    # ~100k chars: the stride sample keeps the probe bounded while still
+    # classifying correctly. The clarity verdict is unchanged v0.2
+    # behavior for the repeated build request (missing language + api
+    # structure -> 100 - 25 - 25 = 50).
+    r = InputGuard().analyze("build a rest api " * 6000)
+    assert r.status == "needs_clarification"
+    assert r.clarity_score == 50
+    assert r.heuristic_coverage == COVERAGE_FULL
+    assert r.degradation_note is None
+
+
+def test_parallel_analyze_thread_safety_64_workers():
+    # 64 workers over mixed English/Chinese inputs must agree with the
+    # single-threaded results (the v0.2 thread-safety contract, rerun with
+    # the probe in the pipeline).
+    guard = InputGuard()
+    strict = InputGuard(mode="strict")
+    inputs = [
+        "fix my code",
+        PROBE_P2_INPUT,
+        "Build a REST API using FastAPI. Store users in PostgreSQL.",
+        "почему моя программа не работает",
+        "make it faster 这个",
+    ]
+    expected = {text: guard.analyze(text).to_dict() for text in inputs}
+    expected_strict = {PROBE_P2_INPUT: strict.analyze(PROBE_P2_INPUT).to_dict()}
+
+    def run(pair):
+        text, mode = pair
+        target = strict if mode == "strict" else guard
+        return text, mode, target.analyze(text).to_dict()
+
+    jobs = [(text, "warning") for text in inputs for _ in range(12)] + [
+        (PROBE_P2_INPUT, "strict") for _ in range(4)
+    ]
+    assert len(jobs) == 64
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        results = list(pool.map(run, jobs))
+
+    for text, mode, result in results:
+        baseline = expected_strict if mode == "strict" else expected
+        assert result == baseline[text]
