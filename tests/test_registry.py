@@ -45,6 +45,13 @@ EXPECTED_BUILTIN_IDS = {
     "missing_existing_stack",
     "missing_feature_scope",
     "missing_completion_criteria",
+    # First-party writing domain (6 rules).
+    "missing_audience",
+    "missing_purpose",
+    "missing_structure_format",
+    "missing_source_material",
+    "missing_writing_context",
+    "missing_completeness",
 }
 
 _V02_INTENT_RUNNERS = {
@@ -85,11 +92,13 @@ def registry_isolation():
     REGISTRY._origins.update(origins_before)
 
 
-# --- the 19 built-ins dogfood the registry path ---------------------------
+# --- the 25 built-ins dogfood the registry path ---------------------------
 
 
 def test_all_builtin_rules_registered_through_registry():
-    assert len(REGISTRY.rule_ids()) == 19
+    # 19 coding + 6 writing built-ins. The exact-set guard is the point:
+    # a rule that stops registering (or an unregistered stray) fails here.
+    assert len(REGISTRY.rule_ids()) == 25
     assert set(REGISTRY.rule_ids()) == EXPECTED_BUILTIN_IDS
     for rule in REGISTRY.rules():
         assert isinstance(rule, Rule)
@@ -97,7 +106,9 @@ def test_all_builtin_rules_registered_through_registry():
 
 
 def test_coding_domain_registered_with_priority_signals():
-    assert REGISTRY.domain_names() == ("coding",)
+    # Both first-party domains register at import: coding first, writing
+    # second.
+    assert REGISTRY.domain_names() == ("coding", "writing")
     chain = REGISTRY.get_domain_signals("coding")
     assert [intent for intent, _ in chain] == [
         "debug",

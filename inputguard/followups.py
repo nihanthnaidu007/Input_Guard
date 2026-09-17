@@ -94,6 +94,27 @@ _FOLLOW_UP_QUESTIONS: Dict[str, Tuple[str, ...]] = {
     "completion criteria": (
         "What does 'done' look like — what should you be able to do when the feature works?",
     ),
+    "audience": (
+        "Who is going to read this — a manager, your team, clients, or the public?",
+        "How familiar will readers be with the topic?",
+    ),
+    "purpose": (
+        "What should this piece accomplish — inform, persuade, announce, or request something?",
+    ),
+    "structure/format": (
+        "How long should it be, and how should it be organized — bullets, sections, or flowing prose?",
+    ),
+    "source material": (
+        "Where is the text to work from — can you paste it or attach the file?",
+        "Should I preserve its structure, or can I reorganize it freely?",
+    ),
+    "context": (
+        "What is the topic or situation this piece should cover?",
+    ),
+    "completeness": (
+        "Is there anything it must include — specific points, names, or numbers?",
+        "Any hard limits, like a word count or a required section?",
+    ),
 }
 
 # Slot names a template may reference. A template naming anything else is a
