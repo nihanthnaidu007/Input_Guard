@@ -36,6 +36,7 @@ class AnalysisResult:
     # score lands in [policy.borderline_at, policy.ready_at), the "worth one
     # more pass" band just below ready.
     borderline: bool = False
+    truncated: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -51,6 +52,7 @@ class AnalysisResult:
             "heuristic_coverage": self.heuristic_coverage,
             "degradation_note": self.degradation_note,
             "borderline": self.borderline,
+            "truncated": self.truncated,
         }
 
     def is_clear(self) -> bool:

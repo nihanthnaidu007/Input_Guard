@@ -74,6 +74,13 @@ class InputGuard:
 
         effective_policy = self.policy if policy is None else policy
 
+        # Enforce the input cap: analysis is bounded, always. Truncation is
+        # visible on the result (AnalysisResult.truncated), never silent.
+        max_chars = effective_policy.max_chars
+        truncated = len(user_input) > max_chars
+        if truncated:
+            user_input = user_input[:max_chars]
+
         domain_signals = REGISTRY.get_domain_signals(domain)
         normalized = normalize(user_input)
 
@@ -176,6 +183,7 @@ class InputGuard:
                 else None
             ),
             borderline=borderline,
+            truncated=truncated,
         )
 
 
