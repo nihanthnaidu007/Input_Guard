@@ -4,6 +4,7 @@ from typing import List, Set
 
 import inputguard.rules  # noqa: F401 — importing registers the coding domain and the 19 built-in rules
 from inputguard.detector import detect_intent, normalize
+from inputguard.followups import get_follow_ups
 from inputguard.recommender import get_recommendations
 from inputguard.registry import REGISTRY
 from inputguard.scorer import calculate_score, get_status
@@ -59,6 +60,9 @@ class InputGuard:
                 seen.add(f.gap)
 
         recommendations = get_recommendations(gaps)
+        # Slot fills read the original input (case preserved); rules ran on
+        # the normalized text, question extraction does not need to.
+        follow_ups = get_follow_ups(gaps, user_input)
 
         high_count = sum(1 for f in findings if f.severity == "high")
         interpretation_note = None
@@ -73,4 +77,5 @@ class InputGuard:
             recommendations=recommendations,
             findings=findings,
             interpretation_note=interpretation_note,
+            follow_ups=follow_ups,
         )
