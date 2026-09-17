@@ -4,6 +4,7 @@ import re
 from typing import List, Optional
 
 from inputguard.detector import FEATURE_SIGNALS
+from inputguard.matching import contains_any
 from inputguard.registry import register_rule
 from inputguard.types import RuleFinding
 
@@ -44,7 +45,8 @@ def _normalize(text: str) -> str:
 
 
 def _contains_any(text: str, terms) -> bool:
-    return any(term in text for term in terms)
+    # v0.3: word-boundary matching via the shared matcher (probe P1 fix).
+    return contains_any(text, terms)
 
 
 def check_missing_existing_stack(text: str) -> Optional[RuleFinding]:

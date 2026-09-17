@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import List, Optional, Set
 
+from inputguard.matching import contains_any
 from inputguard.registry import register_rule
 from inputguard.types import RuleFinding
 
@@ -110,23 +111,11 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower()).strip()
 
 
-def _contains_term(text: str, term: str) -> bool:
-    if term == "/":
-        return "/" in text
-    pattern = r"(?<![a-z0-9])" + re.escape(term) + r"(?![a-z0-9])"
-    if re.search(pattern, text):
-        return True
-    if " " in term:
-        tokens = term.split()
-        return all(
-            re.search(r"(?<![a-z0-9])" + re.escape(tok) + r"(?![a-z0-9])", text)
-            for tok in tokens
-        )
-    return False
-
-
-def _contains_any(text: str, terms: Set[str]) -> bool:
-    return any(_contains_term(text, t) for t in terms)
+def _contains_any(text: str, terms) -> bool:
+    # v0.3: word-boundary matching via the shared matcher. token_fallback
+    # keeps the v0.2 coding-rule behavior for multiword terms ("def ",
+    # "sign in with"): their words may appear non-adjacent.
+    return contains_any(text, terms, token_fallback=True)
 
 
 def check_missing_language(text: str) -> Optional[RuleFinding]:
