@@ -18,7 +18,11 @@ from inputguard.language import (
 from inputguard.policy import Policy
 from inputguard.recommender import get_recommendations
 from inputguard.registry import REGISTRY
-from inputguard.scorer import calculate_score, get_status, require_known_severity
+from inputguard.scorer import (
+    calculate_score_with_breakdown,
+    get_status,
+    require_known_severity,
+)
 from inputguard.types import AnalysisResult, RuleFinding
 
 
@@ -142,7 +146,7 @@ class InputGuard:
                 seen_codes.add(finding.code)
                 findings.append(finding)
 
-        score = calculate_score(findings, effective_policy)
+        score, breakdown = calculate_score_with_breakdown(findings, effective_policy)
         status = get_status(score, self.mode, effective_policy)
         # Two layers: severity decided what fired; the policy's bands decide
         # what happens. The borderline band is the near-miss signal just below
@@ -184,6 +188,7 @@ class InputGuard:
             ),
             borderline=borderline,
             truncated=truncated,
+            score_breakdown=breakdown,
         )
 
 

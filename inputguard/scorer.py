@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from inputguard.policy import Policy, SEVERITIES
 from inputguard.types import RuleFinding
@@ -44,24 +44,45 @@ def calculate_score(findings: List[RuleFinding], policy: Optional[Policy] = None
     would otherwise distort every score silently (the v0.2 ``.get(severity, 0)``
     behavior).
     """
+    score, _ = calculate_score_with_breakdown(findings, policy)
+    return score
+
+
+def calculate_score_with_breakdown(
+    findings: List[RuleFinding], policy: Optional[Policy] = None
+) -> Tuple[int, Dict[str, Any]]:
+    """Score the findings and also return the additive audit breakdown.
+
+    The breakdown is ``{"base": 100, "penalties": [...], "final": score}``
+    where each penalty records ``{"code", "severity", "points"}`` (negative) —
+    one entry per distinct gap (or code, when gap is None), in first-occurrence
+    order. Ops teams use it to audit exactly which finding cost which points.
+    Unknown severities raise ``ValueError`` before any scoring happens.
+    """
     p = Policy() if policy is None else policy
     # Validate every severity before scoring so a bad finding fails loudly
     # even when a later finding would otherwise mask it in the dedup loop.
     for f in findings:
         _severity_rank(f.severity)
 
-    highest_by_gap: Dict[str, str] = {}
+    highest_by_gap: Dict[str, RuleFinding] = {}
     for f in findings:
         key = f.gap if f.gap is not None else f.code
         current = highest_by_gap.get(key)
-        if current is None or _severity_rank(f.severity) > _severity_rank(current):
-            highest_by_gap[key] = f.severity
+        if current is None or _severity_rank(f.severity) > _severity_rank(
+            current.severity
+        ):
+            highest_by_gap[key] = f
 
     score = 100
-    for severity in highest_by_gap.values():
-        score -= _penalty_for(severity, p)
+    penalties: List[Dict[str, Any]] = []
+    for f in highest_by_gap.values():
+        points = _penalty_for(f.severity, p)
+        penalties.append({"code": f.code, "severity": f.severity, "points": -points})
+        score -= points
 
-    return max(0, min(100, score))
+    final = max(0, min(100, score))
+    return final, {"base": 100, "penalties": penalties, "final": final}
 
 
 def _penalty_for(severity: str, policy: Policy) -> int:
