@@ -36,9 +36,41 @@ _RECOMMENDATIONS: Dict[str, dict] = {
     },
     "output format": {
         "gap": "output format",
-        "what_is_missing": "You didn't say what kind of thing you're building or how it will be used.",
-        "what_to_provide": "Add something like: 'as a web app I can open in a browser', 'as a command-line tool I run in my terminal', 'as a REST API', 'as a Python script', or 'as a mobile app'. Pick whichever matches how you plan to use it.",
-        "why_it_matters": "A web app, a script, and an API that do the same job look completely different in code. Without this, the AI picks one and you might get the wrong one entirely.",
+        # Shared gap string, two senses (coding + data analysis — eval-pinned
+        # vocabulary): the advice names the deliverable in both worlds.
+        "what_is_missing": "You didn't say what kind of result you want — what should exist when this is done, and how will it be used?",
+        "what_to_provide": "Add something like: 'as a web app I can open in a browser', 'as a command-line tool', 'as a REST API' — or, for an analysis: 'a bar chart', 'a one-page summary', 'a trends table', or 'a dashboard'. Pick whichever matches how you plan to use it.",
+        "why_it_matters": "A web app, a script, an API, and a summary chart that do the same job look completely different in code. Without this, the AI picks one and you might get the wrong one entirely.",
+    },
+    "dataset/source": {
+        "gap": "dataset/source",
+        "what_is_missing": "You haven't named the data to analyze — no file, table, export, or database is referenced.",
+        "what_to_provide": "Point to the data by name: 'sales_2026.csv', 'the attached export', 'the subscriptions table in postgres', or 'the GA4 export'. 'My data' or 'this dataset' isn't enough for it to know where to look.",
+        "why_it_matters": "Without a named source, the AI has to invent one or ask you anyway. Naming the exact file or table gets you analysis of YOUR data on the first try instead of a template with placeholder numbers.",
+    },
+    "question/goal": {
+        "gap": "question/goal",
+        "what_is_missing": "You haven't said what question the analysis should answer or what decision it should inform.",
+        "what_to_provide": "State the question or goal explicitly: 'did refunds spike after the pricing change?', 'which plan tier cancels most?', 'I want a cohort retention view'. One sentence is enough.",
+        "why_it_matters": "Without a question, you get a generic summary of everything. With one, the analysis is focused, faster, and actually answers what you needed to know.",
+    },
+    "tooling": {
+        "gap": "tooling",
+        "what_is_missing": "You haven't said which tool or language the analysis should use.",
+        "what_to_provide": "Name the tooling: 'in Python with pandas', 'SQL only', 'in BigQuery', 'statsmodels', or 'no external libraries'. If it doesn't matter, say 'any tool is fine'.",
+        "why_it_matters": "Different tools mean different workflows. The AI may produce a Python script when your team runs dbt, or SQL your warehouse can't run — naming the tool keeps the output usable as-is.",
+    },
+    "volume": {
+        "gap": "volume",
+        "what_is_missing": "You haven't said how much data is involved.",
+        "what_to_provide": "State the scale: 'about 80,000 rows', 'two years of daily data', '5,000 survey responses', or 'a 400M-row event table'. Row counts, file sizes, or date ranges all work.",
+        "why_it_matters": "Scale changes the approach. A quick pandas script dies at 400M rows; a full warehouse job is overkill for 500. Saying the size gets you a method that actually runs.",
+    },
+    "reproducibility": {
+        "gap": "reproducibility",
+        "what_is_missing": "You haven't said whether this is a one-off or needs to be rerun.",
+        "what_to_provide": "Say how it will be reused: 'rerun weekly', 'a one-off look', 'document the steps so the team can reproduce it', or 'make the query reusable for every launch'.",
+        "why_it_matters": "One-off looks and recurring reports are built differently. Saying which one it is decides whether you get a quick answer or a documented, rerunnable pipeline.",
     },
     "task context": {
         "gap": "task context",

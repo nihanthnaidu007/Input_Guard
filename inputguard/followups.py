@@ -54,7 +54,24 @@ _FOLLOW_UP_QUESTIONS: Dict[str, Tuple[str, ...]] = {
         "Which login method should it use — email and password, Google or GitHub sign-in, an API key, or a magic link?",
     ),
     "output format": (
-        "What should this be when it's done — a web app, a command-line tool, a REST API, a script, or a mobile app?",
+        "What should this be when it's done — a web app, a command-line tool, a REST API, a chart, a table, or a written summary?",
+    ),
+    "dataset/source": (
+        "Which file, table, or export holds the data — by name?",
+        "What's in {dataset}, and which fields matter for this question?",
+    ),
+    "question/goal": (
+        "What question should the analysis answer, in one sentence?",
+        "What decision will this analysis inform?",
+    ),
+    "tooling": (
+        "Which tools should the analysis use — Python, SQL, a specific library, or anything available?",
+    ),
+    "volume": (
+        "How much data is it — row count, file size, or the date range it covers?",
+    ),
+    "reproducibility": (
+        "Is this a one-off look, or will it be rerun — weekly, monthly, at every launch?",
     ),
     "task context": (
         "What are you trying to build or accomplish, in a sentence or two?",
