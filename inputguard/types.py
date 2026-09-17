@@ -32,6 +32,10 @@ class AnalysisResult:
     detected_language: str = "en"
     heuristic_coverage: str = "full"
     degradation_note: Optional[str] = None
+    # v0.3 policy calibration (additive): near-miss signal — True when the
+    # score lands in [policy.borderline_at, policy.ready_at), the "worth one
+    # more pass" band just below ready.
+    borderline: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -46,6 +50,7 @@ class AnalysisResult:
             "detected_language": self.detected_language,
             "heuristic_coverage": self.heuristic_coverage,
             "degradation_note": self.degradation_note,
+            "borderline": self.borderline,
         }
 
     def is_clear(self) -> bool:

@@ -88,7 +88,7 @@ class InputGuard:
             # modes; the note says honestly what the tool does not know.
             score = max(0, 100 - DEGRADATION_PENALTY)
             return AnalysisResult(
-                status=get_status(score, self.mode),
+                status=get_status(score, self.mode, effective_policy),
                 clarity_score=score,
                 detected_intent=DEGRADED_INTENT,
                 gaps=[],
@@ -136,7 +136,11 @@ class InputGuard:
                 findings.append(finding)
 
         score = calculate_score(findings, effective_policy)
-        status = get_status(score, self.mode)
+        status = get_status(score, self.mode, effective_policy)
+        # Two layers: severity decided what fired; the policy's bands decide
+        # what happens. The borderline band is the near-miss signal just below
+        # ready — distinct "worth one more pass" messaging (spec art_bTvdPdJS).
+        borderline = effective_policy.borderline_at <= score < effective_policy.ready_at
 
         gaps: List[str] = []
         seen: Set[str] = set()
@@ -171,6 +175,7 @@ class InputGuard:
                 if probe.heuristic_coverage == COVERAGE_PARTIAL
                 else None
             ),
+            borderline=borderline,
         )
 
 

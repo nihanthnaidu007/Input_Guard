@@ -13,14 +13,6 @@ backward compatibility of the module surface."""
 
 _SEVERITY_RANK = {name: rank for rank, name in enumerate(SEVERITIES)}
 
-# Warning mode thresholds
-_WARN_READY = 85
-_WARN_USABLE = 60
-
-# Strict mode thresholds
-_STRICT_READY = 85
-_STRICT_NEEDS = 65
-
 
 def require_known_severity(severity: str) -> None:
     """The single choke point validating a severity against ``Policy.SEVERITIES``.
@@ -85,17 +77,27 @@ def _penalty_for(severity: str, policy: Policy) -> int:
     )
 
 
-def get_status(score: int, mode: str) -> str:
+def get_status(score: int, mode: str, policy: Optional[Policy] = None) -> str:
+    """Map a score to a status using the mode's policy bands.
+
+    Bands come from ``policy`` (defaults reproduce the v0.2 constants
+    byte-exactly): warning mode — ``ready`` at ``ready_at`` (85), then
+    ``usable_with_warnings`` at ``usable_at`` (60); strict mode — ``ready``
+    at ``ready_at`` (85), then ``needs_clarification`` at ``strict_clarify_at``
+    (65), else ``blocked``. Two layers stay separate: severity decided what
+    fired; these bands decide what happens.
+    """
+    p = Policy() if policy is None else policy
     if mode == "warning":
-        if score >= _WARN_READY:
+        if score >= p.ready_at:
             return "ready"
-        if score >= _WARN_USABLE:
+        if score >= p.usable_at:
             return "usable_with_warnings"
         return "needs_clarification"
     if mode == "strict":
-        if score >= _STRICT_READY:
+        if score >= p.ready_at:
             return "ready"
-        if score >= _STRICT_NEEDS:
+        if score >= p.strict_clarify_at:
             return "needs_clarification"
         return "blocked"
     raise ValueError(f"Unknown mode: {mode!r}. Expected 'warning' or 'strict'.")
