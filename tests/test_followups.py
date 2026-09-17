@@ -298,6 +298,10 @@ def test_english_score_parity_with_v02(text):
         "detected_language",
         "heuristic_coverage",
         "degradation_note",
+        # policy-calibration PR: borderline band, input cap, score breakdown
+        "borderline",
+        "truncated",
+        "score_breakdown",
     }
     v02_shaped = AnalysisResult(
         status=result.status,

@@ -321,7 +321,8 @@ def test_to_dict_includes_additive_fields():
     assert isinstance(d["degradation_note"], str)
     # Merged additive contract: v0.2 keys keep their names and relative
     # order, follow_ups slots in after recommendations (questions engine),
-    # and the three probe keys trail.
+    # the three probe keys trail, and the policy-calibration keys append
+    # after those (borderline band, input cap, score breakdown).
     assert list(d) == [
         "status",
         "clarity_score",
@@ -334,6 +335,9 @@ def test_to_dict_includes_additive_fields():
         "detected_language",
         "heuristic_coverage",
         "degradation_note",
+        "borderline",
+        "truncated",
+        "score_breakdown",
     ]
     json.dumps(d, ensure_ascii=False)  # JSON-serializable as before
 

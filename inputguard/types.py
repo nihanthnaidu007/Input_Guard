@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -10,6 +10,15 @@ class RuleFinding:
     message: str
     severity: str
     gap: Optional[str] = None
+
+
+def _copy_breakdown(breakdown: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Copy the breakdown so a result and its to_dict never share mutable state."""
+    if breakdown is None:
+        return None
+    copied = dict(breakdown)
+    copied["penalties"] = [dict(p) for p in breakdown["penalties"]]
+    return copied
 
 
 @dataclass(frozen=True)
@@ -32,6 +41,12 @@ class AnalysisResult:
     detected_language: str = "en"
     heuristic_coverage: str = "full"
     degradation_note: Optional[str] = None
+    # v0.3 policy calibration (additive): near-miss signal — True when the
+    # score lands in [policy.borderline_at, policy.ready_at), the "worth one
+    # more pass" band just below ready.
+    borderline: bool = False
+    truncated: bool = False
+    score_breakdown: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> dict:
         return {
@@ -46,6 +61,9 @@ class AnalysisResult:
             "detected_language": self.detected_language,
             "heuristic_coverage": self.heuristic_coverage,
             "degradation_note": self.degradation_note,
+            "borderline": self.borderline,
+            "truncated": self.truncated,
+            "score_breakdown": _copy_breakdown(self.score_breakdown),
         }
 
     def is_clear(self) -> bool:

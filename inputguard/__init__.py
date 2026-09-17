@@ -1,4 +1,5 @@
 from inputguard.analyzer import InputGuard
+from inputguard.policy import Policy
 from inputguard.registry import REGISTRY, Rule, register_domain, register_rule
 from inputguard.types import AnalysisResult, RuleFinding
 
@@ -16,4 +17,7 @@ __all__ = [
     "Rule",
     "register_rule",
     "register_domain",
+    # v0.3 policy calibration (additive): the frozen tuning data for scoring,
+    # status bands, rule filters, and the input cap.
+    "Policy",
 ]
