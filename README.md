@@ -95,6 +95,35 @@ Use `warning` when you want to surface gaps to the user without blocking. Use `s
 
 ---
 
+## Non-English input
+
+InputGuard's rules are English-language heuristics. Before any rule runs, a zero-dependency script probe (stdlib `unicodedata` only) classifies the input's script. When the script has no heuristic coverage, InputGuard says so instead of pretending:
+
+```python
+result = guard.analyze("建造一个用户登录应用")
+
+result.status              # 'usable_with_warnings' — never 'ready'
+result.clarity_score       # 80 (100 minus the degradation penalty)
+result.detected_intent     # 'undetermined'
+result.detected_language   # 'zh' (coarse, script-derived guess)
+result.heuristic_coverage  # 'none'
+result.degradation_note    # explains that rules were skipped and why
+```
+
+The rules are **skipped explicitly** on uncovered scripts — running English keyword rules on text they cannot read would produce a silent, unearned verdict. A degraded result is never `ready` in either mode (strict mode returns `needs_clarification`). In v0.2 this input silently scored 100/ready; v0.3 refuses to assert a confidence it does not have.
+
+Three additive fields on the result carry the probe's verdict:
+
+| Field | Values |
+|---|---|
+| `detected_language` | coarse script-derived guess (`'en'`, `'zh'`, `'ja'`, `'ko'`, `'ru'`, `'ar'`, ...; `'und'` when unclassifiable) |
+| `heuristic_coverage` | `'full'` (≥ 70% of letters covered — rules run exactly as before), `'partial'` (50–70% — rules run, note flags the uncovered remainder), `'none'` (degraded path), `'unknown'` (no letters to classify) |
+| `degradation_note` | `None`, or an explanation of what was skipped and why |
+
+Mixed input is handled by share, not by exclusion: `"make it faster 这个"` is still fully analyzed (English dominates and the rules run); input whose letters fall 50–70% inside coverage gets a `partial` note without a penalty.
+
+---
+
 ## How intent detection works
 
 InputGuard automatically detects what kind of coding input it is receiving. No extra parameters needed. The same `.analyze()` call handles all five intent types.

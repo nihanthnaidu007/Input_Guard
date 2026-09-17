@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- Multilingual degradation: a zero-dependency script probe
+  (`unicodedata`-based histogram, `inputguard/language.py`) classifies
+  each input's script before rules run. Scripts without English
+  heuristic coverage take an explicit degraded path — rules are skipped,
+  a 20-point confidence penalty applies, and the result carries
+  `detected_language`, `heuristic_coverage`, and `degradation_note`
+  instead of silently scoring 100/ready.
+- Additive `AnalysisResult` fields: `detected_language`,
+  `heuristic_coverage`, `degradation_note` (included in `to_dict()`).
+- Mixed-script input: rules run whenever the covered share of letters is
+  at least 50%, with a `partial` note between 50–70% coverage.
+
 ## [0.2.0] — 2026-05-29
 ### Added
 - Auto intent detection. `.analyze()` now detects whether the input
