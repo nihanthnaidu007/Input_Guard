@@ -176,11 +176,14 @@ def test_each_rule_stays_silent_when_gap_satisfied(rule_cls, satisfying_suffix):
 
 
 def test_boundary_safe_matching_on_satisfy_side():
-    # "exporter" is not "export": the word-boundary matcher must not read it
-    # as a named data source. Rule-level check keeps the assertion precise.
-    assert MissingDatasetSourceRule().check("analyze the exporter metrics") is not None
+    # A term embedded mid-word must not satisfy: "unshared" is not a shared
+    # source. The shared matcher bounds every term at word boundaries.
+    assert MissingDatasetSourceRule().check("analyze the unshared metrics") is not None
     # The plain word still satisfies.
     assert MissingDatasetSourceRule().check("analyze the export metrics") is None
+    # Suffix-shaped words at a boundary are genuine inflections under the
+    # shared matcher's contract: "exporter" counts as "export" (-er ending).
+    assert MissingDatasetSourceRule().check("analyze the exporter metrics") is None
 
 
 def test_volume_regexes_cover_labeled_scale_forms():

@@ -23,13 +23,15 @@ Design, following the established trigger-and-satisfy shape:
 - Gap strings are pinned by the same workbook: ``"output format"`` is
   shared with the coding domain's gap string on purpose — the recommender
   entry serves both senses.
-- Matching is boundary-safe standalone-word matching, mirroring the shared
-  word-boundary matcher's semantics (``inputguard.matching`` on the
-  word-boundary branch): terms match at word boundaries, phrases match
-  adjacently, terms with no alphanumeric characters keep substring
-  semantics. The helper is local so this module works whether or not that
-  branch has merged; switch to ``from inputguard.matching import
-  contains_any`` once it lands here.
+- Matching goes through the shared word-boundary matcher
+  (``inputguard.matching``, from the word-boundary PR): standalone words at
+  the ``(?<![a-z0-9])...(?![a-z0-9])`` boundary, inflection-aware endings
+  (so listed plurals like "insights" and "trends" stay satisfied even
+  though the matcher would fold them), adjacent-phrase matching for
+  multiword terms, and substring semantics for terms with no alphanumeric
+  characters. The single-letter tool "r" is matched by an exact boundary
+  regex instead — inflection suffixes would otherwise make the term also
+  match "red" and "ring".
 
 Every gap has a curated recommendation entry and at least one follow-up
 question, enforced by the registry-walking completeness invariant in the
@@ -41,6 +43,7 @@ from __future__ import annotations
 import re
 from typing import FrozenSet, Optional, Pattern, Tuple
 
+from inputguard.matching import contains_any
 from inputguard.registry import register_rule
 from inputguard.types import RuleFinding
 
@@ -141,11 +144,16 @@ TOOLING_SATISFIED_TERMS: FrozenSet[str] = frozenset(
     {
         "pandas", "numpy", "polars", "matplotlib", "seaborn", "plotly",
         "sklearn", "scikit-learn", "statsmodels", "scipy", "dbt", "sql",
-        "python", "pyspark", "spark", "r", "excel", "jupyter", "notebook",
+        "python", "pyspark", "spark", "excel", "jupyter", "notebook",
         "tableau", "power bi", "looker", "no external",
         "bigquery", "snowflake", "redshift", "databricks", "duckdb",
     }
 )
+
+# The R language is matched by exact boundary regex, not as a term: the
+# shared matcher's inflection suffixes would make the single-letter term
+# "r" also match the standalone words "red" and "ring".
+_TOOLING_R_RE: Pattern[str] = re.compile(r"(?<![a-z0-9])r(?![a-z0-9])")
 
 REPRO_SATISFIED_TERMS: FrozenSet[str] = frozenset(
     {
@@ -182,36 +190,19 @@ _VOLUME_WORD_INTERVAL_RE: Pattern[str] = re.compile(
 
 
 # -- matching helpers ----------------------------------------------------------
-# Boundary-safe standalone-word matching, mirroring the shared word-boundary
-# matcher's semantics (see module docstring). Normalized text only.
+# Term lookups go through the shared word-boundary matcher
+# (inputguard.matching): standalone words at the (?<![a-z0-9])...(?![a-z0-9])
+# boundary, inflection-aware, adjacent phrases, substring semantics for
+# terms with no alphanumeric characters. Text is normalized first (the
+# matcher folds case defensively; normalization stays with the rules).
 
 
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
 
 
-def _contains_term(text: str, term: str) -> bool:
-    if not any(ch.isalnum() for ch in term):
-        # "/", "=>", "->" — no word to bound; substring semantics.
-        return term in text
-    pattern = r"(?<![a-z0-9])" + re.escape(term) + r"(?![a-z0-9])"
-    if re.search(pattern, text):
-        return True
-    if " " in term:
-        tokens = term.split()
-        return all(
-            re.search(r"(?<![a-z0-9])" + re.escape(tok) + r"(?![a-z0-9])", text)
-            for tok in tokens
-        )
-    return False
-
-
-def _contains_any(text: str, terms: FrozenSet[str]) -> bool:
-    return any(_contains_term(text, term) for term in terms)
-
-
 def _is_satisfied(text: str, terms: FrozenSet[str], *regexes: Pattern[str]) -> bool:
-    return _contains_any(text, terms) or any(regex.search(text) for regex in regexes)
+    return contains_any(text, terms) or any(regex.search(text) for regex in regexes)
 
 
 # -- the six gap rules ---------------------------------------------------------
@@ -282,7 +273,7 @@ def _check_missing_deliverable_format(text: str) -> Optional[RuleFinding]:
 def _check_missing_tooling(text: str) -> Optional[RuleFinding]:
     """Fires when no tool or library constraint is given."""
     text = _normalize(text)
-    if not _is_satisfied(text, TOOLING_SATISFIED_TERMS):
+    if not _is_satisfied(text, TOOLING_SATISFIED_TERMS, _TOOLING_R_RE):
         return RuleFinding(
             code="missing_tooling",
             message=(
