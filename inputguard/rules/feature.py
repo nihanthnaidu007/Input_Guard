@@ -4,6 +4,7 @@ import re
 from typing import List, Optional
 
 from inputguard.detector import FEATURE_SIGNALS
+from inputguard.registry import register_rule
 from inputguard.types import RuleFinding
 
 
@@ -104,3 +105,54 @@ def run_feature_rules(text: str) -> List[RuleFinding]:
         if result:
             findings.append(result)
     return _dedupe(findings)
+
+
+# Registry adapters: the v0.2 check functions above stay the single home of
+# the rule logic; these classes expose it through the v0.3 Rule protocol and
+# register it through the same path a user rule takes.
+
+
+@register_rule
+class MissingExistingStackRule:
+    """Registry adapter for check_missing_existing_stack."""
+
+    id = "missing_existing_stack"
+    domain = "feature"
+    severity = "high"
+    gap = "existing stack"
+
+    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+        return check_missing_existing_stack(text)
+
+
+@register_rule
+class MissingFeatureScopeRule:
+    """Registry adapter for check_missing_feature_scope."""
+
+    id = "missing_feature_scope"
+    domain = "feature"
+    severity = "high"
+    gap = "feature scope"
+
+    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+        return check_missing_feature_scope(text)
+
+
+@register_rule
+class MissingCompletionCriteriaRule:
+    """Registry adapter for check_missing_completion_criteria."""
+
+    id = "missing_completion_criteria"
+    domain = "feature"
+    severity = "low"
+    gap = "completion criteria"
+
+    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+        return check_missing_completion_criteria(text)
+
+
+FEATURE_RULES = (
+    MissingExistingStackRule,
+    MissingFeatureScopeRule,
+    MissingCompletionCriteriaRule,
+)

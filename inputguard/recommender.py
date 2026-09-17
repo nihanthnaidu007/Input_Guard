@@ -115,9 +115,29 @@ _RECOMMENDATIONS: Dict[str, dict] = {
 }
 
 
+def _fallback_recommendation(gap: str) -> dict:
+    """Generic four-key advice for a gap with no curated entry.
+
+    The documented fallback (spec art_bTvdPdJS §6): unknown gaps keep their
+    advice complete instead of vanishing silently from the recommendations
+    list — the v0.2 behavior that let rule authors ship empty advice.
+    """
+    return {
+        "gap": gap,
+        "what_is_missing": f"You haven't provided the {gap} needed to act on this request.",
+        "what_to_provide": f"Describe the {gap} explicitly — one or two concrete sentences is enough.",
+        "why_it_matters": f"Without the {gap}, the request can be read several ways and the answer may miss what you actually need.",
+    }
+
+
 def get_recommendations(gaps: List[str]) -> List[dict]:
+    """Build one four-key recommendation per gap, in input order.
+
+    A gap without a curated entry gets the documented fallback
+    (see :func:`_fallback_recommendation`) — never a silent drop.
+    """
     out: List[dict] = []
     for gap in gaps:
-        if gap in _RECOMMENDATIONS:
-            out.append(dict(_RECOMMENDATIONS[gap]))
+        entry = _RECOMMENDATIONS.get(gap)
+        out.append(dict(entry) if entry is not None else _fallback_recommendation(gap))
     return out

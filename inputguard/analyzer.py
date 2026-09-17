@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Set
 
-from inputguard.detector import detect_intent
+import inputguard.rules  # noqa: F401 — importing registers the coding domain and the 19 built-in rules
+from inputguard.detector import detect_intent, normalize
 from inputguard.recommender import get_recommendations
-from inputguard.rules.coding import run_coding_rules
-from inputguard.rules.debug import run_debug_rules
-from inputguard.rules.optimization import run_optimization_rules
-from inputguard.rules.explanation import run_explanation_rules
-from inputguard.rules.feature import run_feature_rules
+from inputguard.registry import REGISTRY
 from inputguard.scorer import calculate_score, get_status
 from inputguard.types import AnalysisResult, RuleFinding
 
@@ -36,29 +33,26 @@ class InputGuard:
             )
         if not user_input.strip():
             raise ValueError("user_input must be a non-empty, non-whitespace string.")
-        if domain != "coding":
-            raise ValueError(
-                f"Unsupported domain: {domain!r}. Phase 1 only supports 'coding'."
-            )
 
-        detected_intent = detect_intent(user_input)
+        domain_signals = REGISTRY.get_domain_signals(domain)
 
-        if detected_intent == "debug":
-            findings: List[RuleFinding] = run_debug_rules(user_input)
-        elif detected_intent == "optimization":
-            findings = run_optimization_rules(user_input)
-        elif detected_intent == "explanation":
-            findings = run_explanation_rules(user_input)
-        elif detected_intent == "feature":
-            findings = run_feature_rules(user_input)
-        else:
-            findings = run_coding_rules(user_input)
+        detected_intent = detect_intent(user_input, domain_signals)
+        normalized = normalize(user_input)
+
+        findings: List[RuleFinding] = []
+        seen_codes: Set[str] = set()
+        for rule in REGISTRY.rules_for_intent(detected_intent):
+            finding = rule.check(normalized, detected_intent)
+            if finding is None or finding.code in seen_codes:
+                continue
+            seen_codes.add(finding.code)
+            findings.append(finding)
 
         score = calculate_score(findings)
         status = get_status(score, self.mode)
 
         gaps: List[str] = []
-        seen = set()
+        seen: Set[str] = set()
         for f in findings:
             if f.gap is not None and f.gap not in seen:
                 gaps.append(f.gap)

@@ -18,17 +18,38 @@ _STRICT_READY = 85
 _STRICT_NEEDS = 65
 
 
+def _severity_rank(severity: str) -> int:
+    """Rank lookup that fails loudly: an unknown severity must never silently score zero."""
+    try:
+        return _SEVERITY_RANK[severity]
+    except KeyError:
+        raise ValueError(
+            f"Unknown severity: {severity!r}. Expected one of: 'low', 'medium', 'high'."
+        ) from None
+
+
 def calculate_score(findings: List[RuleFinding]) -> int:
+    """100 minus one penalty per distinct gap (or code, when gap is None), clamped to [0, 100].
+
+    Unknown severities raise ``ValueError`` — a typo'd severity would
+    otherwise distort every score silently (the v0.2 ``.get(severity, 0)``
+    behavior).
+    """
+    # Validate every severity before scoring so a bad finding fails loudly
+    # even when a later finding would otherwise mask it in the dedup loop.
+    for f in findings:
+        _severity_rank(f.severity)
+
     highest_by_gap: Dict[str, str] = {}
     for f in findings:
         key = f.gap if f.gap is not None else f.code
         current = highest_by_gap.get(key)
-        if current is None or _SEVERITY_RANK.get(f.severity, 0) > _SEVERITY_RANK.get(current, 0):
+        if current is None or _severity_rank(f.severity) > _severity_rank(current):
             highest_by_gap[key] = f.severity
 
     score = 100
     for severity in highest_by_gap.values():
-        score -= SEVERITY_PENALTIES.get(severity, 0)
+        score -= SEVERITY_PENALTIES[severity]
 
     return max(0, min(100, score))
 
