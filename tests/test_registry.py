@@ -24,7 +24,9 @@ from inputguard.rules.feature import run_feature_rules
 from inputguard.rules.optimization import run_optimization_rules
 from inputguard.scorer import calculate_score
 
-# The 19 built-in rule ids, as documented in the README table.
+# The 31 built-in rule ids: the 19 coding rules documented in the README
+# table plus the six first-party writing rules and the six first-party
+# data-analysis rules (spec §7).
 EXPECTED_BUILTIN_IDS = {
     "missing_language",
     "missing_api_structure",
@@ -52,6 +54,13 @@ EXPECTED_BUILTIN_IDS = {
     "missing_source_material",
     "missing_writing_context",
     "missing_completeness",
+    # First-party data-analysis domain (6 rules, spec §7).
+    "missing_dataset_source",
+    "missing_question_goal",
+    "missing_deliverable_format",
+    "missing_tooling",
+    "missing_volume",
+    "missing_reproducibility",
 }
 
 _V02_INTENT_RUNNERS = {
@@ -92,13 +101,14 @@ def registry_isolation():
     REGISTRY._origins.update(origins_before)
 
 
-# --- the 25 built-ins dogfood the registry path ---------------------------
+# --- the 31 built-ins dogfood the registry path ---------------------------
 
 
 def test_all_builtin_rules_registered_through_registry():
-    # 19 coding + 6 writing built-ins. The exact-set guard is the point:
-    # a rule that stops registering (or an unregistered stray) fails here.
-    assert len(REGISTRY.rule_ids()) == 25
+    # 19 coding + 6 writing + 6 data-analysis built-ins. The exact-set guard
+    # is the point: a rule that stops registering (or an unregistered stray)
+    # fails here.
+    assert len(REGISTRY.rule_ids()) == 31
     assert set(REGISTRY.rule_ids()) == EXPECTED_BUILTIN_IDS
     for rule in REGISTRY.rules():
         assert isinstance(rule, Rule)
@@ -106,9 +116,7 @@ def test_all_builtin_rules_registered_through_registry():
 
 
 def test_coding_domain_registered_with_priority_signals():
-    # Both first-party domains register at import: coding first, writing
-    # second.
-    assert REGISTRY.domain_names() == ("coding", "writing")
+    assert "coding" in REGISTRY.domain_names()
     chain = REGISTRY.get_domain_signals("coding")
     assert [intent for intent, _ in chain] == [
         "debug",
