@@ -282,7 +282,9 @@ def _ordered_unique_gaps(findings):
 def test_english_score_parity_with_v02(text):
     # follow_ups are derived from gaps after scoring; the v0.2 numbers must
     # not move: same findings, same gap order, same score as the legacy
-    # runners, and to_dict() gains exactly one additive key.
+    # runners, and to_dict() gains exactly the merged additive keys
+    # (follow_ups from the questions engine; the language-probe fields from
+    # the multilingual degradation work).
     result = InputGuard().analyze(text)
     legacy = _V02_INTENT_RUNNERS[result.detected_intent](text)
 
@@ -291,7 +293,12 @@ def test_english_score_parity_with_v02(text):
     assert result.clarity_score == calculate_score(legacy)
 
     d = result.to_dict()
-    assert set(d) == _V02_TO_DICT_KEYS | {"follow_ups"}
+    assert set(d) == _V02_TO_DICT_KEYS | {
+        "follow_ups",
+        "detected_language",
+        "heuristic_coverage",
+        "degradation_note",
+    }
     v02_shaped = AnalysisResult(
         status=result.status,
         clarity_score=result.clarity_score,

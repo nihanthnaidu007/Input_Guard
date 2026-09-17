@@ -319,15 +319,21 @@ def test_to_dict_includes_additive_fields():
     assert d["detected_language"] == "zh"
     assert d["heuristic_coverage"] == "none"
     assert isinstance(d["degradation_note"], str)
-    # v0.2 keys remain byte-identical in name and order.
-    assert list(d)[:7] == [
+    # Merged additive contract: v0.2 keys keep their names and relative
+    # order, follow_ups slots in after recommendations (questions engine),
+    # and the three probe keys trail.
+    assert list(d) == [
         "status",
         "clarity_score",
         "detected_intent",
         "gaps",
         "recommendations",
+        "follow_ups",
         "findings",
         "interpretation_note",
+        "detected_language",
+        "heuristic_coverage",
+        "degradation_note",
     ]
     json.dumps(d, ensure_ascii=False)  # JSON-serializable as before
 
