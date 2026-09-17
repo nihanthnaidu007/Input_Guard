@@ -1,11 +1,11 @@
-"""Built-in rule modules and the registry wiring for the coding and
-writing domains.
+"""Built-in rule modules and the registry wiring for the coding, writing,
+and data-analysis domains.
 
-Importing this package registers both first-party domains — their intent
-signals and all built-in rules — through the exact same registry path a
-user rule takes. The v0.2 ``run_*_rules`` functions stay exported for
-backward compatibility, but the analyzer dispatches through the registry
-now.
+Importing this package registers all three first-party domains — their
+intent signals and all built-in rules — through the exact same registry
+path a user rule takes. The v0.2 ``run_*_rules`` functions stay exported
+for backward compatibility, but the analyzer dispatches through the
+registry now.
 """
 
 from inputguard.detector import (
@@ -17,6 +17,10 @@ from inputguard.detector import (
 )
 from inputguard.registry import REGISTRY
 from inputguard.rules.coding import CODING_RULES, run_coding_rules
+from inputguard.rules.data_analysis import (
+    DATA_ANALYSIS_RULES,
+    DATA_ANALYSIS_SIGNALS,
+)
 from inputguard.rules.debug import DEBUG_RULES, run_debug_rules
 from inputguard.rules.explanation import EXPLANATION_RULES, run_explanation_rules
 from inputguard.rules.feature import FEATURE_RULES, run_feature_rules
@@ -56,4 +60,14 @@ REGISTRY.register_domain(
     "writing",
     WRITING_SIGNALS,
     rules=WRITING_RULES,
+)
+
+# The first-party data-analysis domain (spec §7): the third first-party
+# domain, completing the set. The registry name "data-analysis" follows the
+# clarity-eval corpus (eval/cases.csv names the domain "data-analysis" and
+# the harness passes it verbatim to analyze()).
+REGISTRY.register_domain(
+    "data-analysis",
+    DATA_ANALYSIS_SIGNALS,
+    rules=DATA_ANALYSIS_RULES,
 )
