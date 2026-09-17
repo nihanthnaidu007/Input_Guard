@@ -57,6 +57,7 @@ __all__ = [
     "COVERED_SCRIPTS",
     "DEGRADATION_PENALTY",
     "DEGRADED_INTENT",
+    "DEGRADED_STATUS",
     "ScriptProbe",
     "degradation_note_for",
     "partial_coverage_note",
@@ -94,6 +95,12 @@ DEGRADATION_PENALTY = 20
 # based, so on uncovered scripts it has no evidence; "undetermined" is an
 # additive intent value that says so instead of guessing the "build" fallback.
 DEGRADED_INTENT = "undetermined"
+
+# The literal status a degraded result carries in both modes. Degradation
+# reports a language limitation of the tool itself — mapping it through the
+# ordinary banding would read as an ordinary vagueness verdict
+# (usable_with_warnings / needs_clarification) about the input.
+DEGRADED_STATUS = "degraded"
 
 # The probe examines a deterministic stride sample of at most this many
 # characters, bounding probe cost on arbitrarily long input.

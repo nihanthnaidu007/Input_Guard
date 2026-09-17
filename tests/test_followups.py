@@ -15,6 +15,7 @@ All existing tests are untouched — this file only adds.
 
 from __future__ import annotations
 
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -22,6 +23,8 @@ import pytest
 from inputguard import AnalysisResult, InputGuard
 from inputguard.followups import (
     _FOLLOW_UP_QUESTIONS,
+    _extract_dataset,
+    _extract_dataset_file,
     _extract_slots,
     _render,
     get_follow_ups,
@@ -336,3 +339,63 @@ def test_parallel_analyze_follow_ups_stay_consistent():
         expected = sequential[i]
         for j in range(i, len(parallel), len(sequential)):
             assert parallel[j] == expected
+
+
+# --- regex linearization (regression guard against ReDoS-style backtracking) ----
+
+
+def _wall_ms(fn, arg: str) -> float:
+    start = time.perf_counter()
+    fn(arg)
+    return (time.perf_counter() - start) * 1000.0
+
+
+# The 10 K wall must stay within 40x of the 1 K wall. The replaced pattern
+# (``run\\.(?:ext|...)\\b``) retried every offset inside a filename-shaped run
+# and measured 13 ms at 1 K vs 1306 ms at 10 K — ~100x per decade, i.e.
+# quadratic. A linear scan grows ~10x per decade; 40x splits the two with
+# margin on both sides, so ordinary machine jitter never trips it while any
+# super-linear regression blows through by orders of magnitude.
+@pytest.mark.parametrize(
+    "extractor",
+    [_extract_dataset, _extract_dataset_file],
+    ids=["extract_dataset", "extract_dataset_file"],
+)
+def test_dataset_file_extraction_stays_linear_from_1k_to_10k(extractor):
+    def run(text: str) -> None:
+        extractor(text)
+
+    small_ms = _wall_ms(run, "a" * 1_000)
+    large_ms = _wall_ms(run, "a" * 10_000)
+    assert large_ms < 40 * max(small_ms, 0.05)
+    # And both stay fast in absolute terms — 1.3 s at 10 K was the old number.
+    assert large_ms < 50.0
+
+
+def test_dataset_file_extraction_dotted_filler_stays_linear_from_1k_to_10k():
+    def run(text: str) -> None:
+        _extract_dataset(text)
+
+    small_ms = _wall_ms(run, "a." * 500)
+    large_ms = _wall_ms(run, "a." * 5_000)
+    assert large_ms < 40 * max(small_ms, 0.05)
+    assert large_ms < 50.0
+
+
+def test_dataset_file_extraction_is_case_insensitive_as_before():
+    assert _extract_dataset("export SALES.CSV to me") == "SALES.CSV"
+    assert _extract_dataset("load Data.PARQUET now") == "Data.PARQUET"
+
+
+def test_dataset_file_extraction_prefers_rightmost_valid_extension():
+    # Within one run, the rightmost valid name.ext wins (old backtracking order).
+    assert _extract_dataset("archive.csv.bak") == "archive.csv"
+    assert _extract_dataset("archive.tar.dat") == "archive.tar.dat"
+    # Across runs, the first run holding a valid filename wins (old .search order).
+    assert _extract_dataset("archive.csv.bak and final.dat") == "archive.csv"
+
+
+def test_dataset_file_extraction_ignores_extension_without_boundary():
+    # "csvx" is not "csv" followed by a boundary — no filename here.
+    assert _extract_dataset("report.csvx junk") is None
+

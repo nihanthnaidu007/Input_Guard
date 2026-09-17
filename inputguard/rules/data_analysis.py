@@ -43,7 +43,7 @@ from __future__ import annotations
 import re
 from typing import FrozenSet, Optional, Pattern, Tuple
 
-from inputguard.matching import contains_any
+from inputguard.matching import contains_any, filename_with_known_extension
 from inputguard.registry import register_rule
 from inputguard.types import RuleFinding
 
@@ -120,9 +120,19 @@ DATASET_SATISFIED_TERMS: FrozenSet[str] = frozenset(
 
 # A named data file (sales.csv, nps_verbatims_2026.xlsx) or an introduced
 # dataset/table ("the dataset called churn_2026").
-_DATASET_FILE_RE: Pattern[str] = re.compile(
-    r"(?<![\w])([\w][\w.\-]*\.(?:csv|tsv|xls|xlsx|xlsm|json|jsonl|parquet"
-    r"|avro|sql|db|sqlite|sqlite3|dat|dta|sav))\b"
+#
+# The file check is a linear filename-run scan plus a Python extension check
+# (``filename_with_known_extension``) — the naive ``run\.(?:ext|...)\b``
+# pattern backtracked its greedy span against every dot in a run and went
+# quadratic on long filename-shaped filler. Runs are matched with the
+# module-wide ``[\w]``-based name class (input is normalized to lower case
+# first, so no IGNORECASE is needed).
+_DATASET_FILE_RUN_RE: Pattern[str] = re.compile(r"(?<![\w])[\w][\w.\-]*")
+_DATASET_FILE_EXTENSIONS: FrozenSet[str] = frozenset(
+    {
+        "csv", "tsv", "xls", "xlsx", "xlsm", "json", "jsonl", "parquet",
+        "avro", "sql", "db", "sqlite", "sqlite3", "dat", "dta", "sav",
+    }
 )
 _DATASET_NAMED_RE: Pattern[str] = re.compile(
     r"\b(?:dataset|table|file|sheet)\s+(?:called|named)\s+[\w][\w.\-]*"
@@ -208,6 +218,19 @@ def _is_satisfied(text: str, terms: FrozenSet[str], *regexes: Pattern[str]) -> b
 # -- the six gap rules ---------------------------------------------------------
 
 
+def _dataset_file_present(text: str) -> bool:
+    """Whether any filename-like run ends in a known data extension."""
+    for run_match in _DATASET_FILE_RUN_RE.finditer(text):
+        if (
+            filename_with_known_extension(
+                run_match.group(0), _DATASET_FILE_EXTENSIONS
+            )
+            is not None
+        ):
+            return True
+    return False
+
+
 def _check_missing_dataset_source(text: str) -> Optional[RuleFinding]:
     """Fires when no concrete data source is named.
 
@@ -216,9 +239,12 @@ def _check_missing_dataset_source(text: str) -> Optional[RuleFinding]:
     named store (postgres, BigQuery, the warehouse, a schema).
     """
     text = _normalize(text)
-    if not _is_satisfied(
-        text, DATASET_SATISFIED_TERMS, _DATASET_FILE_RE, _DATASET_NAMED_RE
-    ):
+    satisfied = (
+        contains_any(text, DATASET_SATISFIED_TERMS)
+        or _dataset_file_present(text)
+        or _DATASET_NAMED_RE.search(text) is not None
+    )
+    if not satisfied:
         return RuleFinding(
             code="missing_dataset_source",
             message=(

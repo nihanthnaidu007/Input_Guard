@@ -40,9 +40,9 @@ from __future__ import annotations
 
 import re
 from functools import lru_cache
-from typing import Callable, FrozenSet, Iterable, List, Tuple
+from typing import Callable, FrozenSet, Iterable, List, Optional, Tuple
 
-__all__ = ["contains_any", "contains_term"]
+__all__ = ["contains_any", "contains_term", "filename_with_known_extension"]
 
 # The v0.2 coding matcher's boundary class: a neighboring identifier
 # character ("my_error") still counts as a mention; a longer word does not.
@@ -195,3 +195,37 @@ def contains_any(
             f"got {terms!r}."
         )
     return _build_finder(frozenset(terms), token_fallback)(_fold(text))
+
+
+def filename_with_known_extension(
+    run: str, extensions: FrozenSet[str]
+) -> Optional[str]:
+    """The ``name.ext`` inside a filename-like run whose ``ext`` is known.
+
+    ``run`` is one maximal run of filename characters (identifiers, dots,
+    dashes), as produced by a linear run regex; ``extensions`` is the set of
+    extensions the caller accepts. Returns the filename prefix (original case
+    preserved), or ``None`` when no dot in the run ends in a known extension
+    at a word boundary — ``"a.csv.dat"`` yields ``"a.csv.dat"`` (rightmost
+    valid dot wins), ``"file.csv.x"`` yields ``"file.csv"`` (the boundary
+    sits at the dot), and ``"file.csvx"`` yields ``None`` (no boundary
+    inside the run).
+
+    Dots are scanned right-to-left, replicating the backtrack order of the
+    quadratic regexes this replaces (the rightmost valid ``name.ext`` wins),
+    at linear cost: each dot does O(1) work, and the run regex itself never
+    re-scans inside a matched run.
+    """
+    lowered = run.lower()
+    for dot in range(len(run) - 1, 0, -1):
+        if run[dot] != "." or dot + 1 == len(run):
+            continue
+        for ext in extensions:
+            end = dot + 1 + len(ext)
+            if end > len(run) or not lowered.startswith(ext, dot + 1, end):
+                continue
+            # Word boundary after the extension: end of run, or a run char
+            # that is not a word char ("." or "-").
+            if end == len(run) or run[end] in ".-":
+                return run[:end]
+    return None

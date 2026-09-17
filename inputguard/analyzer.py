@@ -11,6 +11,7 @@ from inputguard.language import (
     COVERAGE_PARTIAL,
     DEGRADATION_PENALTY,
     DEGRADED_INTENT,
+    DEGRADED_STATUS,
     degradation_note_for,
     partial_coverage_note,
     probe_script,
@@ -93,13 +94,17 @@ class InputGuard:
         # explicit degradation path instead of silently passing as ready.
         probe = probe_script(normalized)
         if probe.heuristic_coverage == COVERAGE_NONE:
-            # English-only rules are skipped outright — running them on a
-            # script they cannot read would produce a silent, unearned
-            # ready. The penalty keeps the result out of "ready" in both
-            # modes; the note says honestly what the tool does not know.
+            # English-only rules are skipped outright — running them on input
+            # they cannot assess (another script, mixed scripts, or non-
+            # English Latin wording) would produce a silent, unearned ready
+            # or spurious gaps invented out of the silence. The status is the
+            # literal "degraded" in both modes: the result reports a language
+            # limitation of the tool, not an ordinary vagueness verdict. The
+            # truncation flag is preserved so a capped input degraded by the
+            # probe still says so.
             score = max(0, 100 - DEGRADATION_PENALTY)
             return AnalysisResult(
-                status=get_status(score, self.mode, effective_policy),
+                status=DEGRADED_STATUS,
                 clarity_score=score,
                 detected_intent=DEGRADED_INTENT,
                 gaps=[],
@@ -109,6 +114,7 @@ class InputGuard:
                 detected_language=probe.detected_language,
                 heuristic_coverage=probe.heuristic_coverage,
                 degradation_note=degradation_note_for(probe),
+                truncated=truncated,
             )
 
         detected_intent = detect_intent(user_input, domain_signals)

@@ -26,6 +26,8 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Mapping, Optional, Set, Tuple
 
+from inputguard.matching import filename_with_known_extension
+
 __all__ = ["get_follow_ups"]
 
 
@@ -150,10 +152,21 @@ _FUNCTION_KEYWORDS = frozenset(
     {"if", "for", "while", "switch", "catch", "return", "elif", "else", "do", "try"}
 )
 
-# A named data file, or a dataset/table introduced with "called"/"named".
-_DATASET_FILE_RE = re.compile(
-    r"(?<![\w])([A-Za-z0-9_][A-Za-z0-9_.\-]*\.(?:csv|tsv|xls|xlsx|json|jsonl|parquet|sql|db|sqlite|dat))\b",
-    re.IGNORECASE,
+# A filename-like run: identifier characters, dots, and dashes. The maximal
+# run is matched in one pass — no trailing anchor, so the engine never
+# re-scans inside a matched run. The v0.3-early pattern
+# (``run\.(?:ext|...)\b``) instead retried every offset inside a run and
+# backtracked its greedy span, going quadratic on long filename-shaped
+# filler: 13 ms at 1 K chars, 1.3 s at 10 K. Extensions are now validated in
+# Python by the shared ``filename_with_known_extension`` helper.
+_DATASET_FILE_RUN_RE = re.compile(r"(?<![\w])[A-Za-z0-9_][A-Za-z0-9_.\-]*")
+
+# Extensions a dataset slot may point at.
+_DATASET_FILE_EXTENSIONS = frozenset(
+    {
+        "csv", "tsv", "xls", "xlsx", "json", "jsonl", "parquet", "sql",
+        "db", "sqlite", "dat",
+    }
 )
 _DATASET_NAMED_RE = re.compile(
     r"\b(?:dataset|table)\s+(?:called|named)\s+([A-Za-z0-9_][A-Za-z0-9_.\-]*)",
@@ -170,12 +183,22 @@ def _extract_function(text: str) -> Optional[str]:
 
 
 def _extract_dataset(text: str) -> Optional[str]:
-    file_match = _DATASET_FILE_RE.search(text)
+    file_match = _extract_dataset_file(text)
     if file_match is not None:
-        return file_match.group(1)
+        return file_match
     named_match = _DATASET_NAMED_RE.search(text)
     if named_match is not None:
         return named_match.group(1)
+    return None
+
+
+def _extract_dataset_file(text: str) -> Optional[str]:
+    for run_match in _DATASET_FILE_RUN_RE.finditer(text):
+        filename = filename_with_known_extension(
+            run_match.group(0), _DATASET_FILE_EXTENSIONS
+        )
+        if filename is not None:
+            return filename
     return None
 
 

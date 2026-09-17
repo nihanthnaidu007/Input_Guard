@@ -1,24 +1,67 @@
 # Changelog
 
-## [Unreleased]
+## [0.3.0] — 2026-09-17
+The extension release: register your own rules and domains, get follow-up
+questions for every gap, calibrated policy control, and honest behavior on
+non-English input. Evaluated at **116 of 121** cases on the versioned
+clarity-evaluation set in `eval/`; the 5 residual mismatches are documented
+in `docs/false-positive-benchmark.md`.
+
 ### Added
-- Multilingual degradation: a zero-dependency script probe
-  (`unicodedata`-based histogram, `inputguard/language.py`) classifies
-  each input's script before rules run. Scripts without English
-  heuristic coverage take an explicit degraded path — rules are skipped,
-  a 20-point confidence penalty applies, and the result carries
-  `detected_language`, `heuristic_coverage`, and `degradation_note`
-  instead of silently scoring 100/ready.
-- Additive `AnalysisResult` fields: `detected_language`,
-  `heuristic_coverage`, `degradation_note` (included in `to_dict()`).
-- Mixed-script input: rules run whenever the covered share of letters is
-  at least 50%, with a `partial` note between 50–70% coverage.
-- Accented-Latin honesty (eval DG-011..014): French, Spanish, and
-  Portuguese input no longer passes as silently covered — a function-word
-  layer degrades them like any other uncovered language, and a run of 3+
-  consecutive uncovered-script letters (mixed English+Han) degrades even
-  majority-English input. English prompts (loanwords, URLs, name and
-  timezone collisions) are pinned unchanged by tests.
+- Typed `Rule` protocol and in-process registry (`#3`): first-party and
+  third-party rules enter through the same path; unknown severities fail
+  loudly at score time instead of being swallowed.
+- Registry contract enforcement (`#8`): rules must expose a `check(text)`
+  signature, unique `(intent, id)` pairs, and pass registration guards —
+  a mis-registered rule aborts instead of silently never firing.
+- Per-gap follow-up questions engine (`#4`): every built-in gap carries one
+  or two templated clarifying questions, surfaced on the result as the
+  additive `follow_ups` field. `{function}` / `{dataset}` slots fill from
+  the original input; a gap with no table entry still gets the documented
+  fallback question — never silence.
+- Policy calibration (`#9`): a frozen, validated `Policy` with the v0.2
+  constants as defaults — status bands, severity penalties, rule filters,
+  `min_words`, allowlist patterns, and the 10,000-character input cap with
+  a visible `truncated` flag — plus a per-result `score_breakdown`.
+- First-party writing domain (`#10`): six rules, the `compose` intent,
+  recommendations, and follow-ups for essay/report/email prompts.
+- First-party data-analysis domain (`#11`): six rules (dataset/source,
+  question/goal, deliverable format, tooling, volume, reproducibility),
+  the `analysis` intent, recommendations, and follow-ups.
+- The 121-case clarity-evaluation set, versioned as `eval/` (`#7`), with a
+  measured false-positive benchmark in `docs/false-positive-benchmark.md`.
+- Multilingual degradation (`#5`, `#12`): a zero-dependency script probe
+  (unicodedata histogram, `inputguard/language.py`) classifies each input
+  before rules run. Inputs the English heuristics cannot assess take an
+  explicit degraded path — rules skipped, a 20-point confidence penalty,
+  `detected_language`, `heuristic_coverage`, `degradation_note`, and
+  `detected_intent: undetermined` instead of spurious gaps or a silent
+  100/ready. Four inputs degrade: uncovered dominant scripts, and — from
+  `#12` — Latin-script text recognized as French/Spanish/Portuguese by a
+  function-word layer with an English margin, and Latin-dominant text
+  carrying a run of 3+ consecutive uncovered-script letters (mixed
+  English+Han). English prompts with loanwords, URLs, or name collisions
+  are pinned unchanged by tests.
+
+### Changed
+- All term matching now happens at word boundaries (`#6`) — detector and
+  every rule module share one matcher, so "my_error" matches but "error"
+  inside "terrorist" no longer counts as a mention.
+- Degraded results report the literal `degraded` status in both modes.
+  Mapping the degradation penalty through the ordinary banding returned
+  `usable_with_warnings` / `needs_clarification`, reading as an ordinary
+  vagueness verdict about the input; degradation is a language limitation
+  of the tool and now says so.
+
+### Fixed
+- The dataset-filename regex behind the `{dataset}` follow-up slot (and the
+  data-analysis dataset rule) backtracked its greedy span against every dot
+  in a filename-like run — quadratic, measured at 13 ms per 1 K chars and
+  1.3 s per 10 K. Both sites now scan maximal filename runs linearly with
+  the extension checked in Python; 10 K now takes under a millisecond, and
+  timing tests at 1 K and 10 K pin the growth rate.
+- Degraded-path results preserve the `truncated` flag, so a capped input
+  that also degrades reports both honestly.
 
 ## [0.2.0] — 2026-05-29
 ### Added

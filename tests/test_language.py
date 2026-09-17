@@ -24,6 +24,7 @@ from inputguard.language import (
     COVERAGE_UNKNOWN,
     DEGRADATION_PENALTY,
     DEGRADED_INTENT,
+    DEGRADED_STATUS,
     _sample,
     degradation_note_for,
     partial_coverage_note,
@@ -115,8 +116,21 @@ def test_digits_and_punctuation_have_no_coverage_signal():
     assert probe.heuristic_coverage == COVERAGE_UNKNOWN
 
 
-def test_majority_english_with_minority_han_is_full():
-    # 12 latin letters vs 2 han letters -> covered share well above 0.7.
+def test_majority_english_with_minority_han_degrades():
+    # Latin dominates but a substantive uncovered-script clause rides along:
+    # a run of 3+ consecutive uncovered-script letters (the DG-013 shape) is
+    # content the rules cannot audit, so coverage is not "full".
+    probe = probe_script("Fix this bug 修复这个错误 in the payment flow")
+    assert probe.dominant_script == "latin"
+    assert probe.heuristic_coverage == COVERAGE_NONE
+    assert probe.uncovered_block_script == "han"
+    note = degradation_note_for(probe)
+    assert "mixes scripts" in note
+
+
+def test_short_uncovered_run_rides_along_under_full_coverage():
+    # Below the run threshold a stray word in another script ("这个") does
+    # not invalidate the analysis — the rules still audit the request.
     probe = probe_script("make it faster 这个")
     assert probe.dominant_script == "latin"
     assert probe.heuristic_coverage == COVERAGE_FULL
@@ -179,7 +193,7 @@ def test_note_for_dominant_script_mentions_script_and_language():
 def test_note_for_unrecognized_script_names_the_limitation():
     probe = probe_script("ᚠᚢᚦᚨᚱᚲ")
     note = degradation_note_for(probe)
-    assert "outside the probe's coverage" in note
+    assert "do not cover" in note
 
 
 def test_partial_note_reports_coverage_percentage():
@@ -237,22 +251,100 @@ def test_degraded_result_shape():
     assert r.interpretation_note is None
 
 
-def test_degraded_strict_mode_returns_needs_clarification_not_blocked():
+def test_degraded_strict_mode_reports_degraded_not_blocked():
     r = InputGuard(mode="strict").analyze(PROBE_P2_INPUT)
-    # Score 80 lands in the strict clarify band (65-84), below the ready
-    # floor in both modes.
-    assert r.status == "needs_clarification"
+    # Degradation is the tool reporting a language limitation of itself, not
+    # a vagueness verdict — the literal "degraded" status in both modes
+    # (banding would have said "needs_clarification", reading like an
+    # ordinary critique of the input).
+    assert r.status == "degraded"
 
 
-def test_degraded_warning_mode_returns_usable_with_warnings():
+def test_degraded_warning_mode_reports_degraded_not_usable_with_warnings():
     r = InputGuard().analyze(PROBE_P2_INPUT)
-    assert r.status == "usable_with_warnings"
+    assert r.status == "degraded"
 
 
 def test_degradation_note_is_actionable():
     r = InputGuard().analyze(PROBE_P2_INPUT)
     assert "English" in r.degradation_note
     assert "han" in r.degradation_note
+
+
+# --- Latin-script degradation flavors (the DG-011/012/014 contract) ----------
+# These mirror eval rows verbatim: French, Spanish, and Portuguese prompts are
+# Latin script, so script coverage alone said "full" and the English keyword
+# rules invented spurious gaps out of the silence. The English-evidence gate
+# degrades them instead.
+
+
+def test_french_prompt_degrades_with_no_gaps():
+    # DG-011, verbatim from eval/cases.csv.
+    r = InputGuard().analyze(
+        "Crée une application web avec connexion utilisateur et affiche les "
+        "données sous forme de tableau."
+    )
+    assert r.status == "degraded"
+    assert r.heuristic_coverage == COVERAGE_NONE
+    assert r.detected_intent == DEGRADED_INTENT
+    assert r.gaps == [] and r.findings == []
+    assert r.clarity_score == 100 - DEGRADATION_PENALTY
+    assert "French" in r.degradation_note
+
+
+def test_spanish_prompt_degrades_with_no_gaps():
+    # DG-012, verbatim from eval/cases.csv.
+    r = InputGuard().analyze(
+        "¿por qué mi código se ejecuta tan lento y cómo puedo optimizarlo?"
+    )
+    assert r.status == "degraded"
+    assert r.detected_language == "es"
+    assert r.gaps == [] and r.findings == []
+
+
+def test_portuguese_prompt_degrades_with_no_gaps():
+    # DG-014, verbatim from eval/cases.csv. "no" (Portuguese "in the") is a
+    # stray English stop word — one collision out of 13 words stays under the
+    # evidence threshold.
+    r = InputGuard().analyze(
+        "Preciso de um aplicativo web com login de usuário e relatórios no "
+        "painel."
+    )
+    assert r.status == "degraded"
+    assert r.gaps == [] and r.findings == []
+
+
+def test_mixed_english_han_prompt_degrades_instead_of_reporting_gaps():
+    # DG-013, verbatim from eval/cases.csv: the Han clause carries the actual
+    # request; running the rules on the English part alone reported spurious
+    # gaps invented out of the unaudited remainder.
+    r = InputGuard().analyze("Fix this bug 修复这个错误 in the payment flow")
+    assert r.status == "degraded"
+    assert r.gaps == [] and r.findings == []
+
+
+def test_accented_english_still_runs_the_rules():
+    # Accented English words must not trip the language gate: function/action
+    # words still carry the evidence even when é splits an accented token.
+    r = InputGuard().analyze(
+        "explain how the café module should handle a timeout error"
+    )
+    assert r.status in ("ready", "usable_with_warnings", "needs_clarification")
+    assert r.heuristic_coverage == COVERAGE_FULL
+
+
+def test_telegraphic_english_still_runs_the_rules():
+    # Below five words the gate cannot judge a language; short prompts with
+    # no stop words stay fully analyzable.
+    r = InputGuard().analyze("build todo api")
+    assert r.heuristic_coverage == COVERAGE_FULL
+
+
+def test_degraded_result_preserves_truncation_flag():
+    # A capped input that the probe degrades must still report truncation.
+    r = InputGuard().analyze("修复这个错误 " * 2500)  # > 10_000 chars, Chinese
+    assert r.status == "degraded"
+    assert r.truncated is True
 
 
 def test_degraded_applies_to_every_uncovered_script():
@@ -347,7 +439,7 @@ def test_to_dict_includes_additive_fields():
 # hypothesis is not a dev dependency; zero-dep constraint honored)
 # ---------------------------------------------------------------------------
 
-_VALID_STATUSES = {"ready", "usable_with_warnings", "needs_clarification", "blocked"}
+_VALID_STATUSES = {"ready", "usable_with_warnings", "needs_clarification", "blocked", "degraded"}
 
 _UNICODE_SAMPLES = [
     "emoji only 🚀🔥🏳️‍🌈",
@@ -544,7 +636,7 @@ def test_latin_language_degrades_end_to_end_like_other_uncovered_languages():
         assert r.heuristic_coverage == COVERAGE_NONE, text
         assert r.detected_language == language, text
         assert r.degradation_note is not None, text
-        assert r.status == "usable_with_warnings", text
+        assert r.status == DEGRADED_STATUS, text
         assert r.detected_intent == DEGRADED_INTENT, text
         assert r.gaps == [], text
         assert r.clarity_score == 100 - DEGRADATION_PENALTY, text
@@ -561,7 +653,9 @@ def test_spanish_no_longer_returns_silent_ready():
 
 def test_french_degrades_in_strict_mode_too():
     r = InputGuard(mode="strict").analyze(FRENCH)
-    assert r.status == "needs_clarification"
+    # Literal "degraded" in both modes — banding would read as an ordinary
+    # critique of the input.
+    assert r.status == "degraded"
     assert r.degradation_note is not None
 
 
@@ -569,7 +663,7 @@ def test_mixed_english_han_degrades_end_to_end():
     r = InputGuard().analyze(MIXED_ENGLISH_HAN)
     assert r.heuristic_coverage == COVERAGE_NONE
     assert r.degradation_note is not None
-    assert r.status == "usable_with_warnings"
+    assert r.status == DEGRADED_STATUS
     assert r.detected_intent == DEGRADED_INTENT
     assert r.gaps == []
 

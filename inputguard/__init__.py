@@ -3,7 +3,7 @@ from inputguard.policy import Policy
 from inputguard.registry import REGISTRY, Rule, register_domain, register_rule
 from inputguard.types import AnalysisResult, RuleFinding
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     # v0.2 public API — unchanged compat contract.
