@@ -179,7 +179,7 @@ def test_user_rule_with_unknown_gap_still_gets_a_follow_up():
         severity = "medium"
         gap = "deadline"
 
-        def check(self, text: str, intent: str):
+        def check(self, text: str):
             return finding
 
     rules_before = {rule.id: rule for rule in REGISTRY.rules()}

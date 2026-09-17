@@ -121,7 +121,7 @@ class MissingExistingStackRule:
     severity = "high"
     gap = "existing stack"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_existing_stack(text)
 
 
@@ -134,7 +134,7 @@ class MissingFeatureScopeRule:
     severity = "high"
     gap = "feature scope"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_feature_scope(text)
 
 
@@ -147,7 +147,7 @@ class MissingCompletionCriteriaRule:
     severity = "low"
     gap = "completion criteria"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_completion_criteria(text)
 
 

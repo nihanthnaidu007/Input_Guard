@@ -120,7 +120,7 @@ class MissingOptimizationTargetRule:
     severity = "high"
     gap = "optimization target"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_optimization_target(text)
 
 
@@ -133,7 +133,7 @@ class MissingPerformanceBaselineRule:
     severity = "medium"
     gap = "performance baseline"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_performance_baseline(text)
 
 
@@ -146,7 +146,7 @@ class MissingOptimizationConstraintRule:
     severity = "low"
     gap = "optimization constraint"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_optimization_constraint(text)
 
 

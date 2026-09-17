@@ -101,7 +101,7 @@ class MissingCodeReferenceRule:
     severity = "high"
     gap = "code reference"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_code_reference(text)
 
 
@@ -114,7 +114,7 @@ class MissingExplanationDepthRule:
     severity = "low"
     gap = "explanation depth"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_explanation_depth(text)
 
 

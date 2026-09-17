@@ -66,7 +66,7 @@ def _test_rule(rule_id="test_rule", domain="debug", severity="low", gap=None, fi
     TestRule.domain = domain
     TestRule.severity = severity
     TestRule.gap = gap
-    TestRule.check = lambda self, text, intent: finding
+    TestRule.check = lambda self, text: finding
     return TestRule()
 
 
@@ -75,11 +75,14 @@ def registry_isolation():
     """Snapshot the registry around tests that mutate it."""
     rules_before = dict(REGISTRY._rules)
     domains_before = dict(REGISTRY._domains)
+    origins_before = dict(REGISTRY._origins)
     yield REGISTRY
     REGISTRY._rules.clear()
     REGISTRY._rules.update(rules_before)
     REGISTRY._domains.clear()
     REGISTRY._domains.update(domains_before)
+    REGISTRY._origins.clear()
+    REGISTRY._origins.update(origins_before)
 
 
 # --- the 19 built-ins dogfood the registry path ---------------------------
@@ -147,7 +150,7 @@ def test_register_rule_decorator_form(registry_isolation):
         severity = "medium"
         gap = "deadline"
 
-        def check(self, text, intent):
+        def check(self, text):
             return RuleFinding(
                 code=self.id,
                 message="Test rule fired.",
@@ -304,3 +307,152 @@ def test_parallel_analyze_stays_consistent():
     assert len(parallel) == 65
     for offset in range(0, len(parallel), len(texts)):
         assert parallel[offset : offset + len(texts)] == sequential
+
+
+# --- registry contract remediations (adversarial review art_hC18m78C) ------
+
+
+def test_spec_compliant_check_text_rule_registers_and_fires(registry_isolation):
+    """Review P1: a rule written per the pinned spec used to crash analyze()."""
+
+    class SpecRule:
+        id = "test_spec_signature_rule"
+        domain = "debug"
+        severity = "medium"
+        gap = "deadline"
+
+        def check(self, text):
+            if "fix the bug" in text:
+                return RuleFinding(
+                    code=self.id,
+                    message="Spec-signature rule fired.",
+                    severity=self.severity,
+                    gap=self.gap,
+                )
+            return None
+
+    register_rule(SpecRule())
+    result = InputGuard().analyze("fix the bug in my app")
+    assert "test_spec_signature_rule" in [f.code for f in result.findings]
+
+
+def test_wrong_arity_check_rejected_at_registration(registry_isolation):
+    """Review N3: a wrong-signature rule is a registration error, not a
+    mid-analyze TypeError. The retired foundation signature is the case."""
+
+    class OldSignatureRule:
+        id = "test_old_signature"
+        domain = "debug"
+        severity = "low"
+        gap = None
+
+        def check(self, text, intent):
+            return None
+
+    with pytest.raises(TypeError, match="test_old_signature"):
+        register_rule(OldSignatureRule())
+    assert "test_old_signature" not in REGISTRY.rule_ids()
+
+
+def test_zero_argument_check_rejected_at_registration(registry_isolation):
+
+    class NoArgRule:
+        id = "test_noarg_check"
+        domain = "debug"
+        severity = "low"
+        gap = None
+
+        def check(self):
+            return None
+
+    with pytest.raises(TypeError, match="test_noarg_check"):
+        register_rule(NoArgRule())
+    assert "test_noarg_check" not in REGISTRY.rule_ids()
+
+
+def test_intent_collision_across_domains_raises(registry_isolation):
+    """Review B2/P6b: 'legal' reusing coding's 'debug' intent used to register
+    silently and leak rules across domains. The error names both domains."""
+    legal_signals = {"debug": ("lawsuit", "court filing"), "plead": ()}
+    with pytest.raises(ValueError, match="globally unique") as exc_info:
+        register_domain("legal", legal_signals)
+    assert "legal" in str(exc_info.value)
+    assert "coding" in str(exc_info.value)
+
+
+def test_cross_domain_rule_leakage_is_now_impossible(registry_isolation):
+    """Review P6b: a legal rule firing inside a coding analysis must not recur."""
+    legal_signals = {"debug": ("lawsuit", "court filing"), "plead": ()}
+    with pytest.raises(ValueError, match="globally unique"):
+        register_domain("legal", legal_signals)
+
+    result = InputGuard().analyze("fix the bug in my app")
+    assert "legal_fires" not in [f.code for f in result.findings]
+    assert "legal" not in REGISTRY.domain_names()
+
+
+def test_duplicate_intent_within_one_domain_raises(registry_isolation):
+    """Review N1 (registry half): one call cannot declare an intent twice."""
+    duplicated = [("build", ("make",)), ("build", ()), ("review", ("check",))]
+    with pytest.raises(ValueError, match="duplicate intent"):
+        register_domain("testdupint", duplicated)
+
+
+def test_same_call_duplicate_rule_ids_raise(registry_isolation):
+    """Review C3/P2: duplicate ids in one register_domain call used to be
+    silently dropped (the high-severity second rule vanished)."""
+
+    class HighSeverity:
+        severity = "high"
+        gap = "probe gap"
+        domain = "probe thing"
+
+        def __init__(self, rule_id):
+            self.id = rule_id
+
+        def check(self, text):
+            return None
+
+    with pytest.raises(ValueError, match="register_domain call.*'dup_x'"):
+        register_domain(
+            "testdupdom",
+            {"probe thing": ("widget",), "probe review": ()},
+            rules=[HighSeverity("dup_x"), HighSeverity("dup_x")],
+        )
+    assert "testdupdom" not in REGISTRY.domain_names()
+
+
+def test_rule_exception_gets_loud_attribution(registry_isolation):
+    """Review C2-lite/P4: a rule exception aborts analyze() naming the rule
+    and its registration origin, with the original exception chained."""
+    register_domain("testboom", {"boom thing": ("widget",), "boom review": ()})
+
+    class ExplodingRule:
+        id = "test_exploding_rule"
+        domain = "boom thing"
+        severity = "low"
+        gap = None
+
+        def check(self, text):
+            raise RuntimeError("boom from user rule")
+
+    register_rule(ExplodingRule())
+    with pytest.raises(RuntimeError, match="test_exploding_rule.*registered at") as exc_info:
+        InputGuard().analyze("widget please", domain="testboom")
+    assert "boom from user rule" in str(exc_info.value.__cause__)
+
+
+def test_extension_api_exported_at_top_level():
+    """Review C6: the extension API is importable from the package root."""
+    import inputguard
+
+    for name in ("register_rule", "register_domain", "REGISTRY", "Rule"):
+        assert hasattr(inputguard, name)
+        assert name in inputguard.__all__
+    # the v0.2 compat surface is untouched and leads __all__
+    assert inputguard.__all__[:4] == [
+        "InputGuard",
+        "AnalysisResult",
+        "RuleFinding",
+        "__version__",
+    ]
