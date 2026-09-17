@@ -368,8 +368,13 @@ def test_dataset_file_extraction_stays_linear_from_1k_to_10k(extractor):
     small_ms = _wall_ms(run, "a" * 1_000)
     large_ms = _wall_ms(run, "a" * 10_000)
     assert large_ms < 40 * max(small_ms, 0.05)
-    # And both stay fast in absolute terms — 1.3 s at 10 K was the old number.
-    assert large_ms < 50.0
+    # And both stay fast in absolute terms — 1.3 s at 10 K was the old
+    # number. The bound is a single wall-clock sample, so it carries CI
+    # headroom: coverage-traced runs on slow runners measured up to ~51 ms
+    # (a bare 50 ms bound flaked there, run 35277834661), while the
+    # quadratic regression this guards against is 1.3 s — 5x+ margin even
+    # at 250 ms.
+    assert large_ms < 250.0
 
 
 def test_dataset_file_extraction_dotted_filler_stays_linear_from_1k_to_10k():
@@ -379,7 +384,9 @@ def test_dataset_file_extraction_dotted_filler_stays_linear_from_1k_to_10k():
     small_ms = _wall_ms(run, "a." * 500)
     large_ms = _wall_ms(run, "a." * 5_000)
     assert large_ms < 40 * max(small_ms, 0.05)
-    assert large_ms < 50.0
+    # Same CI headroom rationale as above: single sample, traced runners
+    # measured ~51 ms, regression is 1.3 s.
+    assert large_ms < 250.0
 
 
 def test_dataset_file_extraction_is_case_insensitive_as_before():
