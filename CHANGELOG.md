@@ -42,6 +42,23 @@ in `docs/false-positive-benchmark.md`.
   carrying a run of 3+ consecutive uncovered-script letters (mixed
   English+Han). English prompts with loanwords, URLs, or name collisions
   are pinned unchanged by tests.
+- CI as production gates (`.github/workflows/ci.yml`): a Python 3.9–3.13
+  matrix running ruff, pytest with a 90% branch-coverage floor
+  (`--cov-branch --cov-fail-under=90 --strict`, latency asserts excluded
+  from the traced pass), and mypy `--strict` (the shipped `py.typed` is
+  now actually checked); a dedicated untraced latency-benchmark job with
+  budgets measured on this codebase (10k-char build-intent p50 ≤ 65 ms
+  including the catch-all re-run path, debug and ready paths ≤ 25 ms; a
+  1.6 MB input bounded by the policy cap); and a zero-dependency wheel
+  gate that builds the wheel, installs it into a bare venv, and asserts
+  no third-party package is present.
+- `inputguard` CLI (`inputguard analyze`) via a console-script entry
+  point: argparse, `--format json` emitting the same `to_dict()`
+  contract, and CI-friendly exit codes (0 ok, 1 below `--min-score`,
+  2 usage error).
+- Packaging metadata: 3.13 classifier, Development Status → 4 - Beta,
+  project URLs, and the explicit dev extras / tool config
+  (`[tool.ruff]`, `[tool.mypy]`, `[tool.pytest.ini_options]`).
 
 ### Changed
 - All term matching now happens at word boundaries (`#6`) — detector and
