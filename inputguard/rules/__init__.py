@@ -1,9 +1,11 @@
-"""Built-in rule modules and the registry wiring for the coding domain.
+"""Built-in rule modules and the registry wiring for the coding and
+writing domains.
 
-Importing this package registers the coding domain — its intent signals and
-all 19 built-in rules — through the exact same registry path a user rule
-takes. The v0.2 ``run_*_rules`` functions stay exported for backward
-compatibility, but the analyzer dispatches through the registry now.
+Importing this package registers both first-party domains — their intent
+signals and all built-in rules — through the exact same registry path a
+user rule takes. The v0.2 ``run_*_rules`` functions stay exported for
+backward compatibility, but the analyzer dispatches through the registry
+now.
 """
 
 from inputguard.detector import (
@@ -22,6 +24,7 @@ from inputguard.rules.optimization import (
     OPTIMIZATION_RULES,
     run_optimization_rules,
 )
+from inputguard.rules.writing import WRITING_RULES, WRITING_SIGNALS
 
 __all__ = [
     "run_coding_rules",
@@ -44,4 +47,13 @@ REGISTRY.register_domain(
         *EXPLANATION_RULES,
         *FEATURE_RULES,
     ),
+)
+
+# The writing domain: a single fallback intent ("compose" — globally unique;
+# no coding intent name is reused, so no cross-domain rule leakage) and the
+# six first-party writing rules, registered through the same path.
+REGISTRY.register_domain(
+    "writing",
+    WRITING_SIGNALS,
+    rules=WRITING_RULES,
 )

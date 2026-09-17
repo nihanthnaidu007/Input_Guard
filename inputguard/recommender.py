@@ -112,6 +112,42 @@ _RECOMMENDATIONS: Dict[str, dict] = {
         "what_to_provide": "Describe what done looks like. For example: 'the feature is complete when a user can type in the search box and see matching results appear within 200ms' or 'done means the user receives an email notification within 30 seconds of placing an order'. This prevents the AI from stopping too early or going too far.",
         "why_it_matters": "Without a clear definition of done, the AI may ship a half-finished feature or over-engineer something well past what you needed.",
     },
+    "audience": {
+        "gap": "audience",
+        "what_is_missing": "You haven't said who will read this.",
+        "what_to_provide": "Name the reader and what they already know. For example: 'for the executive team, keep it high-level', 'for beginners who have never used the tool', 'for the client stakeholders, no jargon'. Even one phrase like 'for my manager' sharpens the tone and level of detail.",
+        "why_it_matters": "The same topic reads completely differently for a CEO, a new hire, or a customer. Without a named reader, the AI aims the piece at nobody in particular.",
+    },
+    "purpose": {
+        "gap": "purpose",
+        "what_is_missing": "You haven't said what this piece should accomplish.",
+        "what_to_provide": "State the goal in one phrase: 'to persuade the steering committee to fund Q1 headcount', 'to announce the launch', 'to explain why the deadline moved'. A goal like 'convince', 'inform', or 'ask for' is enough to aim the writing.",
+        "why_it_matters": "Informing and persuading lead to different structures, evidence, and tone. Without a goal, the AI produces a generic piece that does neither well.",
+    },
+    "structure/format": {
+        "gap": "structure/format",
+        "what_is_missing": "You haven't said how long the piece should be or how it should be organized.",
+        "what_to_provide": "Give a length and a shape. For example: 'under 300 words', 'one page', 'bullets with a short intro', 'three sections: situation, options, recommendation'. Any constraint — even just 'keep it short' — works.",
+        "why_it_matters": "Without length or organization guidance, the AI picks its own shape. You will often get a bloated draft you then have to cut down yourself.",
+    },
+    "source material": {
+        "gap": "source material",
+        "what_is_missing": "You asked to work on existing text but didn't provide it.",
+        "what_to_provide": "Paste the text you want reworked — the draft, notes, or paragraph — directly into the message, or point to where it lives ('the outline is at the bottom'). Include any version details that matter.",
+        "why_it_matters": "The AI cannot see text that isn't in the message. Without it, you get a generic rewrite of an imaginary document instead of an improvement to yours.",
+    },
+    "context": {
+        "gap": "context",
+        "what_is_missing": "You haven't said what the piece is about or what situation it responds to.",
+        "what_to_provide": "Name the subject and the situation. For example: 'about remote work for our company blog', 'regarding the Q3 roadmap', 'the email should tell the team the migration finished'. One sentence of background is enough.",
+        "why_it_matters": "Without a topic or situation, there is nothing to write about. The AI either invents one or asks you everything you could have said up front.",
+    },
+    "completeness": {
+        "gap": "completeness",
+        "what_is_missing": "You haven't listed anything the piece must include.",
+        "what_to_provide": "Name the must-haves: 'include the headline, a quote from the CEO, and pricing', 'must cover current costs, risks, and the timeline', 'mention the new ship date'. Also note any hard limits, like a word count.",
+        "why_it_matters": "Must-have details left out of the request get left out of the draft. Naming them up front saves a second pass to work them in.",
+    },
 }
 
 
