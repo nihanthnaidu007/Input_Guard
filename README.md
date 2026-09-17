@@ -122,6 +122,17 @@ Three additive fields on the result carry the probe's verdict:
 
 Mixed input is handled by share, not by exclusion: `"make it faster 这个"` is still fully analyzed (English dominates and the rules run); input whose letters fall 50–70% inside coverage gets a `partial` note without a penalty.
 
+Latin script alone is not coverage, though: the rules are English-only, and French, Spanish, or Portuguese text is 100% Latin script yet just as unreadable to them. The probe therefore also recognizes those three languages by their function words — enough distinct stop-word hits, with a margin over the input's English function-word evidence, degrades the input like any other uncovered language. German, Italian, Dutch, and other Latin-script languages are a documented blind spot and still pass as before. And a run of 3+ consecutive letters in an uncovered script degrades even a majority-English input ("Fix this bug 修复这个错误 in the payment flow"); a 2-letter borrow like `"这个"` still rides along.
+
+```python
+result = guard.analyze("Preciso de um aplicativo web com login de usuário e relatórios")
+
+result.detected_language   # 'pt' (function-word guess)
+result.heuristic_coverage  # 'none'
+result.status              # 'usable_with_warnings' — never 'ready'
+result.degradation_note    # names Portuguese (pt) and explains the skip
+```
+
 ---
 
 ## How intent detection works
