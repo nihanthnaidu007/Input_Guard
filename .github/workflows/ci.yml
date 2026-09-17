@@ -28,8 +28,15 @@ jobs:
           pip install -e ".[dev]"
       - name: Ruff
         run: ruff check inputguard tests eval
-      - name: Tests with 90% branch-coverage floor
-        run: pytest -q --cov=inputguard --cov-branch --cov-fail-under=90 --strict
+      - name: Run tests with 90% branch-coverage floor
+        # Latency asserts are excluded here and gate only in the dedicated
+        # benchmark job: coverage tracing roughly triples per-call cost
+        # (observed on run 35277175054 — debug p50 21.14 ms vs 6.59 ms
+        # untraced), so gating latency under coverage double-gates the same
+        # budgets under different conditions.
+        run: |
+          pytest -q --cov=inputguard --cov-branch --cov-fail-under=90 --strict \
+            --ignore=tests/test_benchmarks.py
       - name: Strict typing (checks the shipped py.typed)
         run: mypy --strict inputguard
 
