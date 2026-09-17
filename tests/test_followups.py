@@ -73,7 +73,7 @@ def test_every_template_renders_with_unknown_slot_failing_loudly():
     # Rendering every template against empty slots exercises the render path:
     # a typo'd slot name raises (loud table bug); a known-but-unfilled slot
     # skips the template (documented behavior); plain templates pass through.
-    for gap, questions in _FOLLOW_UP_QUESTIONS.items():
+    for _gap, questions in _FOLLOW_UP_QUESTIONS.items():
         for question in questions:
             rendered = _render(question, slots={})
             if "{" in question:

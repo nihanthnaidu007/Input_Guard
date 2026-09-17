@@ -17,7 +17,8 @@ from inputguard import InputGuard, Policy, RuleFinding
 from inputguard.policy import SEVERITIES
 from inputguard.registry import KNOWN_SEVERITIES, register_rule
 from inputguard.scorer import require_known_severity
-from test_registry import _test_rule, registry_isolation  # noqa: F401 — pytest fixture
+from test_registry import _test_rule  # noqa: F401 — shared rule builder
+# registry_isolation resolves as a pytest fixture from tests/conftest.py.
 
 # Observed v0.2 / release-branch behavior (runtime probes), reused as fixtures.
 VAGUE_INPUT = "do something now"  # build intent, one high finding: insufficient_context
