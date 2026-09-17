@@ -202,6 +202,8 @@ assert "Portuguese" in result.degradation_note
 The extension contract is four members and one method. Built-in rules register through the exact same path — the API is exercised by all 31 built-in rules before anyone writes their own.
 
 ```python
+from typing import Optional
+
 from inputguard import RuleFinding, register_domain
 
 class CheckRollbackPlan:
@@ -210,7 +212,7 @@ class CheckRollbackPlan:
     severity = "high"              # "low" | "medium" | "high" — validated
     gap = "rollback plan"          # groups findings for scoring dedup
 
-    def check(self, text: str) -> RuleFinding | None:
+    def check(self, text: str) -> Optional[RuleFinding]:
         # text arrives normalized: lowercased, whitespace-collapsed.
         if "rollback" not in text and "roll back" not in text:
             return RuleFinding(
