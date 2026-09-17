@@ -66,7 +66,7 @@ def _test_rule(rule_id="test_rule", domain="debug", severity="low", gap=None, fi
     TestRule.domain = domain
     TestRule.severity = severity
     TestRule.gap = gap
-    TestRule.check = lambda self, text, intent: finding
+    TestRule.check = lambda self, text: finding
     return TestRule()
 
 

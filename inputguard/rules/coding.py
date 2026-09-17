@@ -316,7 +316,7 @@ class MissingLanguageRule:
     severity = "high"
     gap = "programming language"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_language(text)
 
 
@@ -329,7 +329,7 @@ class MissingApiStructureRule:
     severity = "high"
     gap = "api structure"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_api_structure(text)
 
 
@@ -342,7 +342,7 @@ class MissingDataModelRule:
     severity = "high"
     gap = "data model"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_data_model(text)
 
 
@@ -355,7 +355,7 @@ class MissingIntegrationSpecificsRule:
     severity = "medium"
     gap = "integration specifics"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_integration_specifics(text)
 
 
@@ -368,7 +368,7 @@ class MissingAuthTypeRule:
     severity = "high"
     gap = "authentication type"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_auth_type(text)
 
 
@@ -381,7 +381,7 @@ class MissingOutputFormatRule:
     severity = "medium"
     gap = "output format"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_output_format(text)
 
 
@@ -394,7 +394,7 @@ class IntentWithoutDetailRule:
     severity = "high"
     gap = "programming language"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return _check_intent_without_detail(text)
 
 
@@ -403,11 +403,11 @@ class InsufficientContextRule:
     """Catch-all safety net for build-intent input (registry adapter).
 
     v0.2's run_coding_rules passed this rule the findings collected so far and
-    it fired only when that list was empty. A Rule sees only (text, intent),
-    so the adapter re-runs the other built-in build rules — they are pure
-    functions, so the verdict is identical. Findings from user-registered
-    rules are not visible here: the catch-all suppresses on the built-in
-    build rules only.
+    it fired only when that list was empty. A Rule sees only the normalized
+    text, so the adapter re-runs the other built-in build rules — they are
+    pure functions, so the verdict is identical. Findings from
+    user-registered rules are not visible here: the catch-all suppresses on
+    the built-in build rules only.
     """
 
     id = "insufficient_context"
@@ -415,7 +415,7 @@ class InsufficientContextRule:
     severity = "high"
     gap = "task context"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         normalized = _normalize(text)
         seen_codes: Set[str] = set()
         prior: List[RuleFinding] = []

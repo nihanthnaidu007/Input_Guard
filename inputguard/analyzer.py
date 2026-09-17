@@ -75,7 +75,7 @@ class InputGuard:
         findings: List[RuleFinding] = []
         seen_codes: Set[str] = set()
         for rule in REGISTRY.rules_for_intent(detected_intent):
-            finding = rule.check(normalized, detected_intent)
+            finding = rule.check(normalized)
             if finding is None or finding.code in seen_codes:
                 continue
             seen_codes.add(finding.code)

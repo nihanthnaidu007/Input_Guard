@@ -120,7 +120,7 @@ class MissingErrorMessageRule:
     severity = "high"
     gap = "error description"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_error_message(text)
 
 
@@ -133,7 +133,7 @@ class MissingExpectedVsActualRule:
     severity = "high"
     gap = "expected vs actual behavior"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_expected_vs_actual(text)
 
 
@@ -146,7 +146,7 @@ class MissingDebugCodeContextRule:
     severity = "medium"
     gap = "code context"
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         return check_missing_debug_code_context(text)
 
 

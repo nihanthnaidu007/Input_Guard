@@ -4,7 +4,7 @@ v0.3 turns InputGuard's closed, coding-only checker into a pluggable clarity
 engine: rules and domains are registered data, not code paths.
 
 - A rule is any object with the four members (``id``, ``domain``,
-  ``severity``, ``gap``) and a ``check(text, intent)`` method — the
+  ``severity``, ``gap``) and a ``check(text)`` method — the
   :class:`Rule` protocol.
 - A domain is a named analysis scope (``"coding"`` ships built in) that
   declares its intent signals in priority order via
@@ -57,8 +57,8 @@ class Rule(Protocol):
     ``id`` must be unique across the registry, ``severity`` must be one of
     ``'low' | 'medium' | 'high'`` (validated at registration), and ``gap``
     groups the rule's findings for scoring dedup (``None`` dedupes by code
-    instead). ``check`` receives lowercased, whitespace-collapsed text plus
-    the intent detected for this ``analyze()`` call, and returns at most one
+    instead). ``check`` receives lowercased, whitespace-collapsed text, and
+    returns at most one
     :class:`~inputguard.types.RuleFinding` — ``None`` when the rule does not
     fire.
     """
@@ -68,7 +68,7 @@ class Rule(Protocol):
     severity: str
     gap: Optional[str]
 
-    def check(self, text: str, intent: str) -> Optional[RuleFinding]:
+    def check(self, text: str) -> Optional[RuleFinding]:
         ...  # pragma: no cover — protocol body
 
 
@@ -266,7 +266,7 @@ class RuleRegistry:
             raise TypeError(
                 f"Rule {rule!r} is missing required member(s): "
                 f"{', '.join(repr(m) for m in missing)}. A rule needs id, domain, "
-                "severity, gap, and a check(text, intent) method."
+                "severity, gap, and a check(text) method."
             )
         if not isinstance(rule.id, str) or not rule.id:
             raise ValueError(f"Rule id must be a non-empty string, got {rule.id!r}.")
@@ -286,7 +286,7 @@ class RuleRegistry:
         if not callable(rule.check):
             raise TypeError(
                 f"Rule {rule.id!r}: check must be callable — "
-                "check(text, intent) -> Optional[RuleFinding]."
+                "check(text) -> Optional[RuleFinding]."
             )
 
     def _add(self, rule: Rule) -> None:
@@ -307,6 +307,7 @@ class RuleRegistry:
         declared: Set[str] = set()
         for signal_spec in self._domains.values():
             declared.update(intent for intent, _ in signal_spec)
+    
         return declared
 
 
