@@ -60,7 +60,7 @@ _FOLLOW_UP_QUESTIONS: Dict[str, Tuple[str, ...]] = {
         "What are you trying to build or accomplish, in a sentence or two?",
     ),
     "error description": (
-        "What is the exact error message or exception you're seeing? Copy it verbatim if you can.",
+        "What is the exact error message or exception you're seeing (copy it verbatim if you can)?",
     ),
     "expected vs actual behavior": (
         "What did you expect to happen, and what actually happens instead?",
