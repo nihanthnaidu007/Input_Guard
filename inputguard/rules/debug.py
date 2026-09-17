@@ -4,6 +4,8 @@ import re
 from typing import List, Optional
 
 from inputguard.detector import DEBUG_SIGNALS
+from inputguard.matching import contains_any
+from inputguard.registry import register_rule
 from inputguard.types import RuleFinding
 
 
@@ -42,7 +44,8 @@ def _normalize(text: str) -> str:
 
 
 def _contains_any(text: str, terms) -> bool:
-    return any(term in text for term in terms)
+    # v0.3: word-boundary matching via the shared matcher (probe P1 fix).
+    return contains_any(text, terms)
 
 
 def check_missing_error_message(text: str) -> Optional[RuleFinding]:
@@ -103,3 +106,54 @@ def run_debug_rules(text: str) -> List[RuleFinding]:
         if result:
             findings.append(result)
     return _dedupe(findings)
+
+
+# Registry adapters: the v0.2 check functions above stay the single home of
+# the rule logic; these classes expose it through the v0.3 Rule protocol and
+# register it through the same path a user rule takes.
+
+
+@register_rule
+class MissingErrorMessageRule:
+    """Registry adapter for check_missing_error_message."""
+
+    id = "missing_error_message"
+    domain = "debug"
+    severity = "high"
+    gap = "error description"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_error_message(text)
+
+
+@register_rule
+class MissingExpectedVsActualRule:
+    """Registry adapter for check_missing_expected_vs_actual."""
+
+    id = "missing_expected_vs_actual"
+    domain = "debug"
+    severity = "high"
+    gap = "expected vs actual behavior"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_expected_vs_actual(text)
+
+
+@register_rule
+class MissingDebugCodeContextRule:
+    """Registry adapter for check_missing_debug_code_context."""
+
+    id = "missing_debug_code_context"
+    domain = "debug"
+    severity = "medium"
+    gap = "code context"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_debug_code_context(text)
+
+
+DEBUG_RULES = (
+    MissingErrorMessageRule,
+    MissingExpectedVsActualRule,
+    MissingDebugCodeContextRule,
+)

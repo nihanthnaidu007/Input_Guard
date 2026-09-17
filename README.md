@@ -90,8 +90,52 @@ The clarity score is mode-independent. Only the status threshold changes.
 | `usable_with_warnings` | score 60–84 | never |
 | `needs_clarification` | score < 60 | score 65–84 |
 | `blocked` | never | score < 65 |
+| `degraded` | never (language limitation — see Non-English input) | never (language limitation) |
 
 Use `warning` when you want to surface gaps to the user without blocking. Use `strict` when you want to refuse to forward vague input to the LLM.
+
+---
+
+## Non-English input
+
+InputGuard's rules are English-language heuristics. Before any rule runs, a zero-dependency script probe (stdlib `unicodedata` only) classifies the input's script and language. Inputs the rules cannot assess take the explicit degraded path — an uncovered dominant script, Latin-script text recognized as French/Spanish/Portuguese by its function words, or a Latin-dominant input carrying a run of 3+ consecutive uncovered-script letters. In every case InputGuard says so instead of pretending:
+
+```python
+result = guard.analyze("建造一个用户登录应用")
+
+result.status              # 'degraded' — never 'ready', in either mode
+result.clarity_score       # 80 (100 minus the degradation penalty)
+result.detected_intent     # 'undetermined'
+result.detected_language   # 'zh' (coarse, script-derived guess)
+result.heuristic_coverage  # 'none'
+result.degradation_note    # explains that rules were skipped and why
+```
+
+The rules are **skipped explicitly** — running English keyword rules on text they cannot assess would produce a silent, unearned verdict or spurious gaps invented out of the silence. A degraded result reports the literal `degraded` status in both modes: it is the tool reporting a language limitation of itself, not a judgment of the input's clarity (strict mode's banding would otherwise read as an ordinary critique). In v0.2 this input silently scored 100/ready; v0.3 refuses to assert a confidence it does not have.
+
+Four additive fields on the result carry the probe's verdict:
+
+| Field | Values |
+|---|---|
+| `detected_language` | coarse script-derived guess (`'en'`, `'zh'`, `'ja'`, `'ko'`, `'ru'`, `'ar'`, `'fr'`, `'es'`, `'pt'`, ...; `'und'` when unclassifiable) |
+| `heuristic_coverage` | `'full'` (≥ 70% of letters covered — rules run exactly as before), `'partial'` (50–70% — rules run, note flags the uncovered remainder), `'none'` (degraded path), `'unknown'` (no letters to classify) |
+| `degradation_note` | `None`, or an explanation of what was skipped and why |
+| `truncated` | `True` when the input was capped to the 10,000-character limit (preserved even on the degraded path) |
+
+The degraded path covers three shapes of input the English rules cannot assess:
+
+- **Uncovered script** — the dominant script (Cyrillic, Arabic, Han, ...) has no heuristic coverage.
+- **Non-English Latin** — French, Spanish, and Portuguese text is 100% Latin script yet just as unreadable to English-only rules, which would find nothing and invent gaps out of the silence. A function-word layer recognizes those three languages — enough distinct stop-word hits with a margin over the input's English function-word evidence — and degrades them like any other uncovered language. German, Italian, Dutch, and other Latin-script languages are a documented blind spot and still pass as before. Accented English (`café`) and short telegraphic prompts (`build todo api`) still run the rules.
+- **Mixed scripts** — a run of 3+ consecutive letters in an uncovered script degrades even a majority-English input ("Fix this bug 修复这个错误 in the payment flow"): that clause is content the rules cannot audit. A short borrow like `"make it faster 这个"` still rides along, and input at 50–70% coverage keeps the `partial` path with its note.
+
+```python
+result = guard.analyze("Preciso de um aplicativo web com login de usuário e relatórios")
+
+result.detected_language   # 'pt' (function-word guess)
+result.heuristic_coverage  # 'none'
+result.status              # 'degraded' — never 'ready'
+result.degradation_note    # names Portuguese (pt) and explains the skip
+```
 
 ---
 
@@ -177,6 +221,32 @@ Requests like "add search to my existing app", "extend my current API with pagin
 | `missing_feature_scope` | Feature requested but no definition of what it should specifically do. | high |
 | `missing_completion_criteria` | No definition of what done looks like for this feature. | low |
 
+### Writing inputs
+
+Requests like "write a blog post", "draft an email", "proofread my essay". Every gap carries its own follow-up questions, and each gap names one thing at a time — same one-gap-one-question discipline as the coding domains.
+
+| Rule code | What it catches | Severity |
+|---|---|---|
+| `missing_audience` | Writing task detected but no audience or reader is specified. | high |
+| `missing_purpose` | The goal — what the piece should accomplish — is not stated. | high |
+| `missing_structure_format` | No length or organization guidance is provided. | medium |
+| `missing_source_material` | Existing material is referenced but not provided — paste or attach the text to work from. | high |
+| `missing_writing_context` | The subject or situation is not named. | medium |
+| `missing_completeness` | No required content or constraints are specified. | low |
+
+### Data-analysis inputs
+
+Requests like "analyze my sales data", "build a dashboard", "report on this spreadsheet".
+
+| Rule code | What it catches | Severity |
+|---|---|---|
+| `missing_dataset_source` | Analysis requested but no dataset, file, or source is named. | high |
+| `missing_question_goal` | Data present but no question or goal for the analysis is stated. | high |
+| `missing_deliverable_format` | No chart, table, summary, or report named as the output. | medium |
+| `missing_tooling` | No tool or stack (pandas, SQL, Excel...) specified. | medium |
+| `missing_volume` | No sense of data size or scope given. | low |
+| `missing_reproducibility` | No refresh/reproducibility expectation stated. | low |
+
 ---
 
 ## The result object
@@ -185,13 +255,20 @@ Requests like "add search to my existing app", "extend my current API with pagin
 
 | Field | Type | Description |
 |---|---|---|
-| `status` | `str` | One of `"ready"`, `"usable_with_warnings"`, `"needs_clarification"`, `"blocked"` |
+| `status` | `str` | One of `"ready"`, `"usable_with_warnings"`, `"needs_clarification"`, `"blocked"`, `"degraded"` (language limitation — see Non-English input) |
 | `clarity_score` | `int` | 0 to 100 |
-| `detected_intent` | `str` | Which intent was detected: `build`, `debug`, `optimization`, `explanation`, or `feature` |
+| `detected_intent` | `str` | Which intent was detected: `build`, `debug`, `optimization`, `explanation`, `feature`, `compose`, or `analysis` |
 | `gaps` | `List[str]` | Gap names, in the order rules fired |
 | `recommendations` | `List[dict]` | One dict per gap (see next section) |
+| `follow_ups` | `List[str]` | One or two clarifying questions per gap, ready to send back to the user |
 | `findings` | `List[RuleFinding]` | Raw rule findings (code, message, severity, gap) |
 | `interpretation_note` | `Optional[str]` | Set when the input is highly ambiguous (score < 50 or two or more high-severity findings) |
+| `detected_language` | `str` | Coarse script-derived language guess (`'en'`, `'zh'`, ...; `'und'` when unclassifiable) |
+| `heuristic_coverage` | `str` | `'full'`, `'partial'`, `'none'`, or `'unknown'` — how much of the input the English rules could see |
+| `degradation_note` | `Optional[str]` | Set when rule analysis was skipped or limited by language coverage |
+| `borderline` | `bool` | `True` when the score sits in the near-miss band just below ready — worth one more pass |
+| `truncated` | `bool` | `True` when the input was capped at 10,000 characters (only the prefix was analyzed) |
+| `score_breakdown` | `Optional[dict]` | Per-contribution score arithmetic, present when the policy exposes it |
 
 Helpers:
 

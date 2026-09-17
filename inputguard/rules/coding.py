@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import List, Optional, Set
 
+from inputguard.matching import contains_any
+from inputguard.registry import register_rule
 from inputguard.types import RuleFinding
 
 
@@ -109,23 +111,11 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower()).strip()
 
 
-def _contains_term(text: str, term: str) -> bool:
-    if term == "/":
-        return "/" in text
-    pattern = r"(?<![a-z0-9])" + re.escape(term) + r"(?![a-z0-9])"
-    if re.search(pattern, text):
-        return True
-    if " " in term:
-        tokens = term.split()
-        return all(
-            re.search(r"(?<![a-z0-9])" + re.escape(tok) + r"(?![a-z0-9])", text)
-            for tok in tokens
-        )
-    return False
-
-
-def _contains_any(text: str, terms: Set[str]) -> bool:
-    return any(_contains_term(text, t) for t in terms)
+def _contains_any(text: str, terms) -> bool:
+    # v0.3: word-boundary matching via the shared matcher. token_fallback
+    # keeps the v0.2 coding-rule behavior for multiword terms ("def ",
+    # "sign in with"): their words may appear non-adjacent.
+    return contains_any(text, terms, token_fallback=True)
 
 
 def check_missing_language(text: str) -> Optional[RuleFinding]:
@@ -299,3 +289,144 @@ def run_coding_rules(text: str) -> List[RuleFinding]:
         seen_codes.add(catchall.code)
 
     return findings
+
+
+# Registry adapters: the v0.2 check functions above stay the single home of
+# the rule logic; these classes expose it through the v0.3 Rule protocol and
+# register it through the same path a user rule takes.
+
+
+@register_rule
+class MissingLanguageRule:
+    """Registry adapter for check_missing_language."""
+
+    id = "missing_language"
+    domain = "build"
+    severity = "high"
+    gap = "programming language"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_language(text)
+
+
+@register_rule
+class MissingApiStructureRule:
+    """Registry adapter for check_missing_api_structure."""
+
+    id = "missing_api_structure"
+    domain = "build"
+    severity = "high"
+    gap = "api structure"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_api_structure(text)
+
+
+@register_rule
+class MissingDataModelRule:
+    """Registry adapter for check_missing_data_model."""
+
+    id = "missing_data_model"
+    domain = "build"
+    severity = "high"
+    gap = "data model"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_data_model(text)
+
+
+@register_rule
+class MissingIntegrationSpecificsRule:
+    """Registry adapter for check_missing_integration_specifics."""
+
+    id = "missing_integration_specifics"
+    domain = "build"
+    severity = "medium"
+    gap = "integration specifics"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_integration_specifics(text)
+
+
+@register_rule
+class MissingAuthTypeRule:
+    """Registry adapter for check_missing_auth_type."""
+
+    id = "missing_auth_type"
+    domain = "build"
+    severity = "high"
+    gap = "authentication type"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_auth_type(text)
+
+
+@register_rule
+class MissingOutputFormatRule:
+    """Registry adapter for check_missing_output_format."""
+
+    id = "missing_output_format"
+    domain = "build"
+    severity = "medium"
+    gap = "output format"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_output_format(text)
+
+
+@register_rule
+class IntentWithoutDetailRule:
+    """Registry adapter for _check_intent_without_detail."""
+
+    id = "intent_without_language"
+    domain = "build"
+    severity = "high"
+    gap = "programming language"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return _check_intent_without_detail(text)
+
+
+@register_rule
+class InsufficientContextRule:
+    """Catch-all safety net for build-intent input (registry adapter).
+
+    v0.2's run_coding_rules passed this rule the findings collected so far and
+    it fired only when that list was empty. A Rule sees only the normalized
+    text, so the adapter re-runs the other built-in build rules — they are
+    pure functions, so the verdict is identical. Findings from
+    user-registered rules are not visible here: the catch-all suppresses on
+    the built-in build rules only.
+    """
+
+    id = "insufficient_context"
+    domain = "build"
+    severity = "high"
+    gap = "task context"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        normalized = _normalize(text)
+        seen_codes: Set[str] = set()
+        prior: List[RuleFinding] = []
+        for check_fn in _CHECKS:
+            result = check_fn(normalized)
+            if result is not None and result.code not in seen_codes:
+                prior.append(result)
+                seen_codes.add(result.code)
+        intent_finding = _check_intent_without_detail(normalized)
+        if intent_finding is not None and intent_finding.code not in seen_codes:
+            prior.append(intent_finding)
+            seen_codes.add(intent_finding.code)
+        return _check_insufficient_context(normalized, prior)
+
+
+CODING_RULES = (
+    MissingLanguageRule,
+    MissingApiStructureRule,
+    MissingDataModelRule,
+    MissingIntegrationSpecificsRule,
+    MissingAuthTypeRule,
+    MissingOutputFormatRule,
+    IntentWithoutDetailRule,
+    InsufficientContextRule,
+)

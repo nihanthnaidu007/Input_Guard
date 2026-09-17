@@ -4,6 +4,8 @@ import re
 from typing import List, Optional
 
 from inputguard.detector import OPTIMIZATION_SIGNALS
+from inputguard.matching import contains_any
+from inputguard.registry import register_rule
 from inputguard.types import RuleFinding
 
 
@@ -42,7 +44,8 @@ def _normalize(text: str) -> str:
 
 
 def _contains_any(text: str, terms) -> bool:
-    return any(term in text for term in terms)
+    # v0.3: word-boundary matching via the shared matcher (probe P1 fix).
+    return contains_any(text, terms)
 
 
 def check_missing_optimization_target(text: str) -> Optional[RuleFinding]:
@@ -103,3 +106,54 @@ def run_optimization_rules(text: str) -> List[RuleFinding]:
         if result:
             findings.append(result)
     return _dedupe(findings)
+
+
+# Registry adapters: the v0.2 check functions above stay the single home of
+# the rule logic; these classes expose it through the v0.3 Rule protocol and
+# register it through the same path a user rule takes.
+
+
+@register_rule
+class MissingOptimizationTargetRule:
+    """Registry adapter for check_missing_optimization_target."""
+
+    id = "missing_optimization_target"
+    domain = "optimization"
+    severity = "high"
+    gap = "optimization target"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_optimization_target(text)
+
+
+@register_rule
+class MissingPerformanceBaselineRule:
+    """Registry adapter for check_missing_performance_baseline."""
+
+    id = "missing_performance_baseline"
+    domain = "optimization"
+    severity = "medium"
+    gap = "performance baseline"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_performance_baseline(text)
+
+
+@register_rule
+class MissingOptimizationConstraintRule:
+    """Registry adapter for check_missing_optimization_constraint."""
+
+    id = "missing_optimization_constraint"
+    domain = "optimization"
+    severity = "low"
+    gap = "optimization constraint"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_optimization_constraint(text)
+
+
+OPTIMIZATION_RULES = (
+    MissingOptimizationTargetRule,
+    MissingPerformanceBaselineRule,
+    MissingOptimizationConstraintRule,
+)

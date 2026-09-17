@@ -4,6 +4,8 @@ import re
 from typing import List, Optional
 
 from inputguard.detector import EXPLANATION_SIGNALS
+from inputguard.matching import contains_any
+from inputguard.registry import register_rule
 from inputguard.types import RuleFinding
 
 
@@ -36,7 +38,8 @@ def _normalize(text: str) -> str:
 
 
 def _contains_any(text: str, terms) -> bool:
-    return any(term in text for term in terms)
+    # v0.3: word-boundary matching via the shared matcher (probe P1 fix).
+    return contains_any(text, terms)
 
 
 def check_missing_code_reference(text: str) -> Optional[RuleFinding]:
@@ -84,3 +87,40 @@ def run_explanation_rules(text: str) -> List[RuleFinding]:
         if result:
             findings.append(result)
     return _dedupe(findings)
+
+
+# Registry adapters: the v0.2 check functions above stay the single home of
+# the rule logic; these classes expose it through the v0.3 Rule protocol and
+# register it through the same path a user rule takes.
+
+
+@register_rule
+class MissingCodeReferenceRule:
+    """Registry adapter for check_missing_code_reference."""
+
+    id = "missing_code_reference"
+    domain = "explanation"
+    severity = "high"
+    gap = "code reference"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_code_reference(text)
+
+
+@register_rule
+class MissingExplanationDepthRule:
+    """Registry adapter for check_missing_explanation_depth."""
+
+    id = "missing_explanation_depth"
+    domain = "explanation"
+    severity = "low"
+    gap = "explanation depth"
+
+    def check(self, text: str) -> Optional[RuleFinding]:
+        return check_missing_explanation_depth(text)
+
+
+EXPLANATION_RULES = (
+    MissingCodeReferenceRule,
+    MissingExplanationDepthRule,
+)

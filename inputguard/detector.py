@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import re
 
+from typing import Iterable, Mapping, Optional, Tuple
+
+from inputguard.matching import contains_any
 
 DEBUG_SIGNALS = {
     "error", "exception", "traceback", "not working", "isn't working",
@@ -50,15 +53,33 @@ FEATURE_SIGNALS = {
 }
 
 
-def _normalize(text: str) -> str:
+# The coding intent chain: priority-ordered (intent, terms) pairs. The single
+# intent with empty terms ("build") is the fallback. This is the single source
+# of truth for detection — the rule modules key their gates off the same sets,
+# and the coding domain registers this chain in the rule registry.
+INTENT_SIGNALS = (
+    ("debug", DEBUG_SIGNALS),
+    ("optimization", OPTIMIZATION_SIGNALS),
+    ("explanation", EXPLANATION_SIGNALS),
+    ("feature", FEATURE_SIGNALS),
+    ("build", ()),
+)
+
+
+def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
 
 
 def _contains_any(text: str, terms) -> bool:
-    return any(term in text for term in terms)
+    # v0.3: word-boundary matching shared with the rule modules — "fixture"
+    # is no longer read as the debug signal "fix" (probe P1).
+    return contains_any(text, terms)
 
 
-def detect_intent(text: str) -> str:
+def detect_intent(
+    text: str,
+    signals: Optional[Iterable[Tuple[str, Iterable[str]]]] = None,
+) -> str:
     """
     Detect the intent type of a coding input.
 
@@ -70,15 +91,28 @@ def detect_intent(text: str) -> str:
     feature beats build. Build is the fallback.
 
     Ambiguous inputs always resolve to the highest-priority match.
-    """
-    normalized = _normalize(text)
 
-    if _contains_any(normalized, DEBUG_SIGNALS):
-        return "debug"
-    if _contains_any(normalized, OPTIMIZATION_SIGNALS):
-        return "optimization"
-    if _contains_any(normalized, EXPLANATION_SIGNALS):
-        return "explanation"
-    if _contains_any(normalized, FEATURE_SIGNALS):
-        return "feature"
-    return "build"
+    Pass ``signals`` to run the same chain over a domain's own
+    priority-ordered ``(intent, terms)`` pairs — the single intent with
+    empty terms is the fallback. Defaults to :data:`INTENT_SIGNALS`, the
+    built-in coding chain.
+    """
+    normalized = normalize(text)
+
+    chain = INTENT_SIGNALS if signals is None else tuple(
+        signals.items() if isinstance(signals, Mapping) else signals
+    )
+
+    fallback: Optional[str] = None
+    for intent, terms in chain:
+        if not terms:
+            fallback = intent
+        elif _contains_any(normalized, terms):
+            return intent
+
+    if fallback is not None:
+        return fallback
+    raise ValueError(
+        "detect_intent requires exactly one fallback intent (an entry with "
+        "empty signal terms); none was provided."
+    )

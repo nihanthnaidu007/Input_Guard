@@ -36,9 +36,41 @@ _RECOMMENDATIONS: Dict[str, dict] = {
     },
     "output format": {
         "gap": "output format",
-        "what_is_missing": "You didn't say what kind of thing you're building or how it will be used.",
-        "what_to_provide": "Add something like: 'as a web app I can open in a browser', 'as a command-line tool I run in my terminal', 'as a REST API', 'as a Python script', or 'as a mobile app'. Pick whichever matches how you plan to use it.",
-        "why_it_matters": "A web app, a script, and an API that do the same job look completely different in code. Without this, the AI picks one and you might get the wrong one entirely.",
+        # Shared gap string, two senses (coding + data analysis — eval-pinned
+        # vocabulary): the advice names the deliverable in both worlds.
+        "what_is_missing": "You didn't say what kind of result you want — what should exist when this is done, and how will it be used?",
+        "what_to_provide": "Add something like: 'as a web app I can open in a browser', 'as a command-line tool', 'as a REST API' — or, for an analysis: 'a bar chart', 'a one-page summary', 'a trends table', or 'a dashboard'. Pick whichever matches how you plan to use it.",
+        "why_it_matters": "A web app, a script, an API, and a summary chart that do the same job look completely different in code. Without this, the AI picks one and you might get the wrong one entirely.",
+    },
+    "dataset/source": {
+        "gap": "dataset/source",
+        "what_is_missing": "You haven't named the data to analyze — no file, table, export, or database is referenced.",
+        "what_to_provide": "Point to the data by name: 'sales_2026.csv', 'the attached export', 'the subscriptions table in postgres', or 'the GA4 export'. 'My data' or 'this dataset' isn't enough for it to know where to look.",
+        "why_it_matters": "Without a named source, the AI has to invent one or ask you anyway. Naming the exact file or table gets you analysis of YOUR data on the first try instead of a template with placeholder numbers.",
+    },
+    "question/goal": {
+        "gap": "question/goal",
+        "what_is_missing": "You haven't said what question the analysis should answer or what decision it should inform.",
+        "what_to_provide": "State the question or goal explicitly: 'did refunds spike after the pricing change?', 'which plan tier cancels most?', 'I want a cohort retention view'. One sentence is enough.",
+        "why_it_matters": "Without a question, you get a generic summary of everything. With one, the analysis is focused, faster, and actually answers what you needed to know.",
+    },
+    "tooling": {
+        "gap": "tooling",
+        "what_is_missing": "You haven't said which tool or language the analysis should use.",
+        "what_to_provide": "Name the tooling: 'in Python with pandas', 'SQL only', 'in BigQuery', 'statsmodels', or 'no external libraries'. If it doesn't matter, say 'any tool is fine'.",
+        "why_it_matters": "Different tools mean different workflows. The AI may produce a Python script when your team runs dbt, or SQL your warehouse can't run — naming the tool keeps the output usable as-is.",
+    },
+    "volume": {
+        "gap": "volume",
+        "what_is_missing": "You haven't said how much data is involved.",
+        "what_to_provide": "State the scale: 'about 80,000 rows', 'two years of daily data', '5,000 survey responses', or 'a 400M-row event table'. Row counts, file sizes, or date ranges all work.",
+        "why_it_matters": "Scale changes the approach. A quick pandas script dies at 400M rows; a full warehouse job is overkill for 500. Saying the size gets you a method that actually runs.",
+    },
+    "reproducibility": {
+        "gap": "reproducibility",
+        "what_is_missing": "You haven't said whether this is a one-off or needs to be rerun.",
+        "what_to_provide": "Say how it will be reused: 'rerun weekly', 'a one-off look', 'document the steps so the team can reproduce it', or 'make the query reusable for every launch'.",
+        "why_it_matters": "One-off looks and recurring reports are built differently. Saying which one it is decides whether you get a quick answer or a documented, rerunnable pipeline.",
     },
     "task context": {
         "gap": "task context",
@@ -112,12 +144,68 @@ _RECOMMENDATIONS: Dict[str, dict] = {
         "what_to_provide": "Describe what done looks like. For example: 'the feature is complete when a user can type in the search box and see matching results appear within 200ms' or 'done means the user receives an email notification within 30 seconds of placing an order'. This prevents the AI from stopping too early or going too far.",
         "why_it_matters": "Without a clear definition of done, the AI may ship a half-finished feature or over-engineer something well past what you needed.",
     },
+    "audience": {
+        "gap": "audience",
+        "what_is_missing": "You haven't said who will read this.",
+        "what_to_provide": "Name the reader and what they already know. For example: 'for the executive team, keep it high-level', 'for beginners who have never used the tool', 'for the client stakeholders, no jargon'. Even one phrase like 'for my manager' sharpens the tone and level of detail.",
+        "why_it_matters": "The same topic reads completely differently for a CEO, a new hire, or a customer. Without a named reader, the AI aims the piece at nobody in particular.",
+    },
+    "purpose": {
+        "gap": "purpose",
+        "what_is_missing": "You haven't said what this piece should accomplish.",
+        "what_to_provide": "State the goal in one phrase: 'to persuade the steering committee to fund Q1 headcount', 'to announce the launch', 'to explain why the deadline moved'. A goal like 'convince', 'inform', or 'ask for' is enough to aim the writing.",
+        "why_it_matters": "Informing and persuading lead to different structures, evidence, and tone. Without a goal, the AI produces a generic piece that does neither well.",
+    },
+    "structure/format": {
+        "gap": "structure/format",
+        "what_is_missing": "You haven't said how long the piece should be or how it should be organized.",
+        "what_to_provide": "Give a length and a shape. For example: 'under 300 words', 'one page', 'bullets with a short intro', 'three sections: situation, options, recommendation'. Any constraint — even just 'keep it short' — works.",
+        "why_it_matters": "Without length or organization guidance, the AI picks its own shape. You will often get a bloated draft you then have to cut down yourself.",
+    },
+    "source material": {
+        "gap": "source material",
+        "what_is_missing": "You asked to work on existing text but didn't provide it.",
+        "what_to_provide": "Paste the text you want reworked — the draft, notes, or paragraph — directly into the message, or point to where it lives ('the outline is at the bottom'). Include any version details that matter.",
+        "why_it_matters": "The AI cannot see text that isn't in the message. Without it, you get a generic rewrite of an imaginary document instead of an improvement to yours.",
+    },
+    "context": {
+        "gap": "context",
+        "what_is_missing": "You haven't said what the piece is about or what situation it responds to.",
+        "what_to_provide": "Name the subject and the situation. For example: 'about remote work for our company blog', 'regarding the Q3 roadmap', 'the email should tell the team the migration finished'. One sentence of background is enough.",
+        "why_it_matters": "Without a topic or situation, there is nothing to write about. The AI either invents one or asks you everything you could have said up front.",
+    },
+    "completeness": {
+        "gap": "completeness",
+        "what_is_missing": "You haven't listed anything the piece must include.",
+        "what_to_provide": "Name the must-haves: 'include the headline, a quote from the CEO, and pricing', 'must cover current costs, risks, and the timeline', 'mention the new ship date'. Also note any hard limits, like a word count.",
+        "why_it_matters": "Must-have details left out of the request get left out of the draft. Naming them up front saves a second pass to work them in.",
+    },
 }
 
 
+def _fallback_recommendation(gap: str) -> dict:
+    """Generic four-key advice for a gap with no curated entry.
+
+    The documented fallback (spec art_bTvdPdJS §6): unknown gaps keep their
+    advice complete instead of vanishing silently from the recommendations
+    list — the v0.2 behavior that let rule authors ship empty advice.
+    """
+    return {
+        "gap": gap,
+        "what_is_missing": f"You haven't provided the {gap} needed to act on this request.",
+        "what_to_provide": f"Describe the {gap} explicitly — one or two concrete sentences is enough.",
+        "why_it_matters": f"Without the {gap}, the request can be read several ways and the answer may miss what you actually need.",
+    }
+
+
 def get_recommendations(gaps: List[str]) -> List[dict]:
+    """Build one four-key recommendation per gap, in input order.
+
+    A gap without a curated entry gets the documented fallback
+    (see :func:`_fallback_recommendation`) — never a silent drop.
+    """
     out: List[dict] = []
     for gap in gaps:
-        if gap in _RECOMMENDATIONS:
-            out.append(dict(_RECOMMENDATIONS[gap]))
+        entry = _RECOMMENDATIONS.get(gap)
+        out.append(dict(entry) if entry is not None else _fallback_recommendation(gap))
     return out
