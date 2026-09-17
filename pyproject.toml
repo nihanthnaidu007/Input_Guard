@@ -34,6 +34,9 @@ dev = [
   "twine>=5",
 ]
 
+[project.scripts]
+inputguard = "inputguard.cli:main"
+
 [tool.setuptools.packages.find]
 include = ["inputguard*"]
 
