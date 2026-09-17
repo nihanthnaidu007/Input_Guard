@@ -4,6 +4,8 @@ import re
 
 from typing import Iterable, Mapping, Optional, Tuple
 
+from inputguard.matching import contains_any
+
 DEBUG_SIGNALS = {
     "error", "exception", "traceback", "not working", "isn't working",
     "doesn't work", "won't work", "broken", "failing", "fails", "failed",
@@ -69,7 +71,9 @@ def normalize(text: str) -> str:
 
 
 def _contains_any(text: str, terms) -> bool:
-    return any(term in text for term in terms)
+    # v0.3: word-boundary matching shared with the rule modules — "fixture"
+    # is no longer read as the debug signal "fix" (probe P1).
+    return contains_any(text, terms)
 
 
 def detect_intent(
