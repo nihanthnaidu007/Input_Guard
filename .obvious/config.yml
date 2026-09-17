@@ -1,0 +1,11 @@
+# Autobuild repo policy — nihanthnaidu007/Input_Guard
+# Detected from GitHub repo settings on 2026-09-17.
+
+branches:
+  default: main
+
+merge:
+  # GitHub allows merge commit, squash, and rebase.
+  # Squash chosen as the automation default; a commit-history purist can flip this.
+  method: squash
+  requireHumanMerge: true
