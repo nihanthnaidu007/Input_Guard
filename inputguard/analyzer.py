@@ -75,7 +75,20 @@ class InputGuard:
         findings: List[RuleFinding] = []
         seen_codes: Set[str] = set()
         for rule in REGISTRY.rules_for_intent(detected_intent):
-            finding = rule.check(normalized)
+            try:
+                finding = rule.check(normalized)
+            except Exception as exc:
+                # Loud failure with attribution (review C2-lite): a rule
+                # exception is never swallowed or silently degraded around —
+                # it aborts analyze(), naming the rule and where it was
+                # registered, with the original traceback chained.
+                raise RuntimeError(
+                    f"inputguard rule {rule.id!r} "
+                    f"(registered {REGISTRY.rule_origin(rule.id)}) raised "
+                    f"{type(exc).__name__}: {exc}. A rule exception aborts "
+                    f"analyze() by design — rules are the author's "
+                    f"responsibility after registration; fix or remove the rule."
+                ) from exc
             if finding is None or finding.code in seen_codes:
                 continue
             seen_codes.add(finding.code)

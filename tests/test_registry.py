@@ -75,11 +75,14 @@ def registry_isolation():
     """Snapshot the registry around tests that mutate it."""
     rules_before = dict(REGISTRY._rules)
     domains_before = dict(REGISTRY._domains)
+    origins_before = dict(REGISTRY._origins)
     yield REGISTRY
     REGISTRY._rules.clear()
     REGISTRY._rules.update(rules_before)
     REGISTRY._domains.clear()
     REGISTRY._domains.update(domains_before)
+    REGISTRY._origins.clear()
+    REGISTRY._origins.update(origins_before)
 
 
 # --- the 19 built-ins dogfood the registry path ---------------------------
@@ -147,7 +150,7 @@ def test_register_rule_decorator_form(registry_isolation):
         severity = "medium"
         gap = "deadline"
 
-        def check(self, text, intent):
+        def check(self, text):
             return RuleFinding(
                 code=self.id,
                 message="Test rule fired.",
