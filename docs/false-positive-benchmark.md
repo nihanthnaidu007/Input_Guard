@@ -19,7 +19,7 @@ Last run: v0.3.0 release branch, 2026-09-17.
 | **overall**    | **121** | **116** | **4** | **1** | **3.3%** | **0.8%** |
 
 Degradation honesty: a degradation note is present on 14 of 14 degradation
-rows. Performance wall time (single pass): PF-001 22 ms, PF-002 22 ms —
+rows. Performance wall time (single pass): PF-001 19 ms, PF-002 20 ms —
 PF-002 exercises the 10,000-character cap with the `truncated` flag set.
 
 Zero false positives on true negatives and zero on degradation rows is the
@@ -27,21 +27,50 @@ load-bearing number: it says the English keyword rules fire only on English
 input, and that non-English input degrades instead of producing invented
 gaps.
 
+## Fixture-style boundary target: 4 of 6, against v0.2's 6 of 6
+
+The labeling guide (`art_XPvHhPeZ`) sets the release target: the six
+fixture-style boundary rows (BD-002, BD-003, BD-004, BD-006, BD-013,
+BD-014) must come back clean, with BD-012 — the genuine-debug-request
+no-regression guard — still passing. The v0.2 baseline flagged all six
+(substring matching read "fixture" as "fix").
+
+Measured at this release: **2 of 6 pass cleanly (BD-003, BD-013), and
+BD-012 passes**, but 4 of 6 still flag (BD-002, BD-004, BD-006, BD-014).
+The 0/6 target is therefore **not met** — the honest read is "improved from
+6/6 to 4/6 flagged, short of the 0/6 target."
+
+The mechanism is deliberate, verified in `inputguard/matching.py`: the
+shared matcher kills the embedded-word false positives ("fixture" is no
+longer "fix"), but it still absorbs common inflectional endings
+(`-s`, `-ed`, `-ing`, `-er`, `-ly`, ...) so natural word forms keep firing
+— "debugged" still matches "debug", "slowly" still matches "slow". The
+class-of-hit the v0.2 coding matcher preserved was read as recall on
+real inputs; these four labels were written against strict
+boundary-only semantics and sit exactly on that trade-off. Closing them
+means re-deciding that recall trade-off on the labeled set — an
+eval-driven change for a future release, never a label edit.
+
+For the spec verification row "False positive eliminated", this run
+records: v0.2 baseline 6/6 flagged; v0.3 measured 4/6 flagged with
+BD-012 (no-regression guard) passing and zero false positives on all 37
+true negatives.
+
 ## Residual mismatches (5)
 
-The 5 unmatched rows are all pre-existing behavior on the coding domain,
-known at label time and outside the v0.3 feature work:
+The 5 unmatched rows, per the measured run at the top of this document:
 
-- `TP-FEA-02` — false negative: `feature scope` gap not flagged; the row
-  comes back one status above expected (`usable_with_warnings` vs `ready`).
-- `BD-002`, `BD-004`, `BD-006` — boundary rows: the detected intent
-  switches (build → optimization / debug) and the coding rules of the other
-  intent fire, adding spurious gaps.
-- `BD-014` — boundary row with the same intent-adjacency shape.
+- `TP-FEA-02` — false negative: the `feature scope` gap is not flagged; the
+  row lands one status above expected (`usable_with_warnings` vs `ready`).
+- `BD-002`, `BD-004`, `BD-006`, `BD-014` — fixture-style boundary rows
+  still flagging through the matcher's deliberate inflection tolerance
+  (see the target section above): the detected intent flips
+  (build → optimization / debug) and the other intent's coding rules fire,
+  adding spurious gaps.
 
-These are candidate labels to re-examine or intent-detector work for a
-future release; per `eval/README.md`, labels are never edited to make a
-measurement look better.
+These are candidate re-evaluations of the inflection-recall trade-off, or
+intent-detector work, for a future release; per `eval/README.md`, labels
+are never edited to make a measurement look better.
 
 ## History within the release wave
 

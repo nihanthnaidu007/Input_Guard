@@ -121,7 +121,10 @@ class Rule(Protocol):
 
 def _instantiate(rule_cls: type) -> Rule:
     try:
-        return rule_cls()
+        # Bare ``type`` construction is typed Any; the annotation pins the
+        # protocol so strict mode sees a Rule, not Any.
+        instance: Rule = rule_cls()
+        return instance
     except TypeError as exc:
         raise TypeError(
             f"Cannot register rule class {rule_cls.__name__!r}: it must be "

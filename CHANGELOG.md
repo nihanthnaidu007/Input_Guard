@@ -42,6 +42,45 @@ in `docs/false-positive-benchmark.md`.
   carrying a run of 3+ consecutive uncovered-script letters (mixed
   English+Han). English prompts with loanwords, URLs, or name collisions
   are pinned unchanged by tests.
+- CI as production gates (`.github/workflows/ci.yml`): a Python 3.9–3.13
+  matrix running ruff, pytest with a 90% branch-coverage floor
+  (`--cov-branch --cov-fail-under=90 --strict`, latency asserts excluded
+  from the traced pass), and mypy `--strict` (the shipped `py.typed` is
+  now actually checked); a dedicated untraced latency-benchmark job with
+  budgets measured on this codebase (10k-char build-intent p50 ≤ 65 ms
+  including the catch-all re-run path, debug and ready paths ≤ 25 ms; a
+  1.6 MB input bounded by the policy cap); and a zero-dependency wheel
+  gate that builds the wheel, installs it into a bare venv, and asserts
+  no third-party package is present.
+- `inputguard` CLI (`inputguard analyze`) via a console-script entry
+  point: argparse, `--format json` emitting the same `to_dict()`
+  contract, and CI-friendly exit codes (0 ok, 1 below `--min-score`,
+  2 usage error).
+- Packaging metadata: 3.13 classifier, Development Status → 4 - Beta,
+  project URLs, and the explicit dev extras / tool config
+  (`[tool.ruff]`, `[tool.mypy]`, `[tool.pytest.ini_options]`).
+
+### Docs
+- README rewritten for the v0.3 surface — public exports (including the
+  extension API), Policy customization, custom rule/domain registration,
+  follow-up questions, multilingual degradation, and CLI usage — with the
+  v0.2 example-drift failure mode closed structurally: every README
+  example is executed by `tests/test_readme_examples.py`, the embedded
+  `to_dict()` JSON is regenerated from live analyzer output, and the
+  export list, rule tables, gap vocabulary, and CLI output are checked
+  against the registry.
+- Framework integration recipes: `docs/recipes/langchain.md` and
+  `docs/recipes/litellm.md`, copy-paste patterns over the `to_dict()`
+  serialization boundary. Framework packages stay out of core; the recipe
+  blocks are example-tested with framework stubs in
+  `tests/test_recipes.py`.
+- False-positive benchmark documentation refreshed from a measured run of
+  `eval/measure_fp.py` on this release state: 116/121 overall, FP 3.3% /
+  FN 0.8%, zero false positives on true negatives and degradation rows.
+  The labeling-guide boundary target is stated honestly: 4 of 6
+  fixture-style rows still flag (v0.2 baseline 6/6, target 0/6) through
+  the matcher's deliberate inflection tolerance — documented as an
+  eval-driven trade-off for a future release, not a label edit.
 
 ### Changed
 - All term matching now happens at word boundaries (`#6`) — detector and

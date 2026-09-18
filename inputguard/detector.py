@@ -70,7 +70,7 @@ def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
 
 
-def _contains_any(text: str, terms) -> bool:
+def _contains_any(text: str, terms: Iterable[str]) -> bool:
     # v0.3: word-boundary matching shared with the rule modules — "fixture"
     # is no longer read as the debug signal "fix" (probe P1).
     return contains_any(text, terms)
